@@ -164,7 +164,7 @@ void scroll_up()
 
 int compare_elements(const void *arg1, const void *arg2)
 {
-    char *const *p1 = arg1;
-    char *const *p2 = arg2;
-    return strcasecmp(*p1, *p2);
+    const char *p1 = * (char **) arg1;
+    const char *p2 = * (char **) arg2;
+    return strcasecmp(p1, p2);
 }
