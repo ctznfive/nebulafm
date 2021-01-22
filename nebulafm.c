@@ -66,6 +66,11 @@ void init(int argc, char *argv[])
     getcwd(cwd, sizeof(cwd));
     int allocSize = snprintf(NULL, 0, "%s", cwd);
     current_dir_path = malloc(allocSize + 1);
+    if (current_dir_path == NULL)
+    {
+        printf("%s", "directory initialization error\n");
+        exit(1);
+    }
     snprintf(current_dir_path, allocSize + 1, "%s", cwd);
 }
 
@@ -123,7 +128,7 @@ void print_files(int num_files_dir, char *dir_files[])
     {
         highlight_selection(current_select, i);
         wmove(current_win, i + 1, 1);
-        wprintw(current_win, "%.*s", term_max_x / 2, dir_files[i]);
+        wprintw(current_win, "%.*s", term_max_x / 2 - 3, dir_files[i]);
     }
 }
 
