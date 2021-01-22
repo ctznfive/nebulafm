@@ -89,7 +89,12 @@ int get_number_of_files(char *directory)
 
     pDir = opendir(directory);
     while ((pDirent = readdir(pDir)) != NULL)
+    {
+        // skip . and ..
+        if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0)
+            continue;
         len++;
+    }
     closedir(pDir);
     return len;
 }
@@ -103,6 +108,9 @@ void get_files_in_array(char *directory, char *files[])
     pDir = opendir(directory);
     while ((pDirent = readdir(pDir)) != NULL)
     {
+        // skip . and ..
+        if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0)
+            continue;
         files[i] = strdup(pDirent->d_name);
         i++;
     }
