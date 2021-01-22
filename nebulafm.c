@@ -23,6 +23,7 @@ void print_files(int, char *[]);
 void highlight_selection(int, int);
 void scroll_down(void);
 void scroll_up(void);
+int compare_elements(const void *, const void *);
 
 int main(int argc, char *argv[])
 {
@@ -37,6 +38,9 @@ int main(int argc, char *argv[])
         int current_files_num = get_number_of_files(current_dir_path);
         char *current_dir_files[current_files_num];
         get_files_in_array(current_dir_path, current_dir_files);
+
+        // sorting files in dir alphabetically
+        qsort(current_dir_files, current_files_num, sizeof (char*), compare_elements);
 
         getmaxyx(stdscr, term_max_y, term_max_x); // get term size
         make_windows(); // make two windows + status
@@ -68,8 +72,8 @@ void init(int argc, char *argv[])
     current_dir_path = malloc(allocSize + 1);
     if (current_dir_path == NULL)
     {
-        printf("%s", "directory initialization error\n");
-        exit(1);
+        printf("directory initialization error\n");
+        exit(EXIT_FAILURE);
     }
     snprintf(current_dir_path, allocSize + 1, "%s", cwd);
 }
@@ -90,7 +94,6 @@ int get_number_of_files(char *directory)
     pDir = opendir(directory);
     while ((pDirent = readdir(pDir)) != NULL)
     {
-        // skip . and ..
         if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0)
             continue;
         len++;
@@ -108,7 +111,6 @@ void get_files_in_array(char *directory, char *files[])
     pDir = opendir(directory);
     while ((pDirent = readdir(pDir)) != NULL)
     {
-        // skip . and ..
         if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0)
             continue;
         files[i] = strdup(pDirent->d_name);
@@ -158,4 +160,11 @@ void scroll_up()
 {
     current_select--; 
     current_select = (current_select < 0) ? 0 : current_select;
+}
+
+int compare_elements(const void *arg1, const void *arg2)
+{
+    char *const *p1 = arg1;
+    char *const *p2 = arg2;
+    return strcasecmp(*p1, *p2);
 }
