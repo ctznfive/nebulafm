@@ -153,8 +153,10 @@ void print_files(int num_files_dir, char *dir_files[])
     {
         if (i == current_select)
             wattron(current_win, A_STANDOUT); // highlighting
+        wmove(current_win, i + 1, 0);
+        wclrtoeol(current_win); // pre-erase the string for too long file names
         wmove(current_win, i + 1, 2);
-        wprintw(current_win, "%.*s", term_max_x / 2 - 3, dir_files[i]);
+        wprintw(current_win, "%s", dir_files[i]);
         wattroff(current_win, A_STANDOUT); 
     }
 }
