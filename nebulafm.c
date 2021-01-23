@@ -159,6 +159,9 @@ void print_files(int num_files_dir, char *dir_files[])
         wprintw(current_win, "%s", dir_files[i]);
         wattroff(current_win, A_STANDOUT); 
     }
+    // erase the string if last filename is too long
+    wmove(current_win, num_files_dir + 1, 0);
+    wclrtoeol(current_win);
 }
 
 void go_down()
