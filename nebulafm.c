@@ -1,9 +1,12 @@
+// % gcc nebulafm.c -o nebulafm $(ncursesw5-config --cflags --libs)
+
 #include <stdio.h>
 #include <curses.h>
 #include <string.h>
 #include <dirent.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <locale.h>
 
 /* globals */
 int term_max_x, term_max_y;
@@ -15,7 +18,7 @@ WINDOW *current_win;
 
 /* function prototypes */
 void init(int, char *[]);
-void curses_init(void);
+void init_curses(void);
 int get_number_of_files(char *);
 void get_files_in_array(char *, char *[]);
 int compare_elements(const void *, const void *);
@@ -33,7 +36,7 @@ int main(int argc, char *argv[])
     int keypress;
 
     init(argc, argv);
-    curses_init();
+    init_curses();
 
     do
     {
@@ -58,9 +61,8 @@ int main(int argc, char *argv[])
             go_down();
         if (keypress == 'k')
             go_up();
-        if (keypress == 'h' && current_dir_path[1] != '\0')
+        if (keypress == 'h' && current_dir_path[1] != '\0') // if not root dir
             go_back();
-
     } while (keypress != 'q');
 
     free(current_dir_path);
@@ -71,6 +73,7 @@ int main(int argc, char *argv[])
 
 void init(int argc, char *argv[])
 {
+    setlocale(LC_ALL, ""); // for wide characters
     char cwd[PATH_MAX];
     getcwd(cwd, sizeof(cwd));
     int alloc_size = snprintf(NULL, 0, "%s", cwd);
@@ -83,7 +86,7 @@ void init(int argc, char *argv[])
     snprintf(current_dir_path, alloc_size + 1, "%s", cwd);
 }
 
-void curses_init()
+void init_curses()
 {
     initscr(); // start curses mode
     noecho();
