@@ -18,12 +18,14 @@ void init(int, char *[]);
 void curses_init(void);
 int get_number_of_files(char *);
 void get_files_in_array(char *, char *[]);
+int compare_elements(const void *, const void *);
 void make_windows(void);
 WINDOW *create_newwin(int height, int width, int starty, int startx);
 void print_files(int, char *[]);
-void scroll_down(void);
-void scroll_up(void);
-int compare_elements(const void *, const void *);
+void go_down(void);
+void go_up(void);
+void go_back(void);
+
 
 int main(int argc, char *argv[])
 {
@@ -53,9 +55,11 @@ int main(int argc, char *argv[])
         // keybindings
         keypress = wgetch(current_win);
         if (keypress == 'j')
-            scroll_down();
+            go_down();
         if (keypress == 'k')
-            scroll_up();
+            go_up();
+        if (keypress == 'h' && current_dir_path[1] != '\0')
+            go_back();
 
     } while (keypress != 'q');
 
@@ -64,18 +68,19 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
+
 void init(int argc, char *argv[])
 {
     char cwd[PATH_MAX];
     getcwd(cwd, sizeof(cwd));
-    int allocSize = snprintf(NULL, 0, "%s", cwd);
-    current_dir_path = malloc(allocSize + 1);
+    int alloc_size = snprintf(NULL, 0, "%s", cwd);
+    current_dir_path = malloc(alloc_size + 1);
     if (current_dir_path == NULL)
     {
         printf("directory initialization error\n");
         exit(EXIT_FAILURE);
     }
-    snprintf(current_dir_path, allocSize + 1, "%s", cwd);
+    snprintf(current_dir_path, alloc_size + 1, "%s", cwd);
 }
 
 void curses_init()
@@ -119,6 +124,13 @@ void get_files_in_array(char *directory, char *files[])
     closedir(pDir);
 }
 
+int compare_elements(const void *arg1, const void *arg2)
+{
+    char * const *p1 = arg1;
+    char * const *p2 = arg2;
+    return strcasecmp(*p1, *p2);
+}
+
 void make_windows()
 {
     current_win = create_newwin(term_max_y, term_max_x / 2, 0, 0);
@@ -137,29 +149,33 @@ void print_files(int num_files_dir, char *dir_files[])
     for (int i = 0; i < num_files_dir; i++)
     {
         if (i == current_select)
-            wattron(current_win, A_STANDOUT);
+            wattron(current_win, A_STANDOUT); // highlighting
         wmove(current_win, i + 1, 2);
         wprintw(current_win, "%.*s", term_max_x / 2 - 3, dir_files[i]);
         wattroff(current_win, A_STANDOUT); 
     }
 }
 
-void scroll_down()
+void go_down()
 {
     current_select++; 
     if (current_select > current_files_num - 1)
         current_select = current_files_num -1;
 }
 
-void scroll_up()
+void go_up()
 {
     current_select--; 
     current_select = (current_select < 0) ? 0 : current_select;
 }
 
-int compare_elements(const void *arg1, const void *arg2)
+void go_back()
 {
-    char * const *p1 = arg1;
-    char * const *p2 = arg2;
-    return strcasecmp(*p1, *p2);
+    current_dir_path[strrchr(current_dir_path, '/') - current_dir_path] = '\0';
+    if (current_dir_path[0] == '\0') // for root dir
+    {
+        current_dir_path[0] = '/';
+        current_dir_path[1] = '\0';
+    }
+    current_select = 0;
 }
