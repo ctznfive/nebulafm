@@ -9,6 +9,7 @@
 int term_max_x, term_max_y;
 int win_start_x, win_start_y;
 char *current_dir_path = NULL;
+int current_files_num = 0; 
 int current_select = 0;
 WINDOW *current_win;
 
@@ -20,7 +21,6 @@ void get_files_in_array(char *, char *[]);
 void make_windows(void);
 WINDOW *create_newwin(int height, int width, int starty, int startx);
 void print_files(int, char *[]);
-void highlight_selection(int, int);
 void scroll_down(void);
 void scroll_up(void);
 int compare_elements(const void *, const void *);
@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 
     do
     {
-        int current_files_num = get_number_of_files(current_dir_path);
+        current_files_num = get_number_of_files(current_dir_path);
         char *current_dir_files[current_files_num];
         get_files_in_array(current_dir_path, current_dir_files);
 
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 
     free(current_dir_path);
     endwin ();
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 void init(int argc, char *argv[])
@@ -136,24 +136,19 @@ void print_files(int num_files_dir, char *dir_files[])
 {
     for (int i = 0; i < num_files_dir; i++)
     {
-        highlight_selection(current_select, i);
-        wmove(current_win, i + 1, 1);
+        if (i == current_select)
+            wattron(current_win, A_STANDOUT);
+        wmove(current_win, i + 1, 2);
         wprintw(current_win, "%.*s", term_max_x / 2 - 3, dir_files[i]);
-    }
-}
-
-void highlight_selection(int current_select, int file_number)
-{
-    if (file_number == current_select)
-        wattron(current_win, A_STANDOUT);
-    else
         wattroff(current_win, A_STANDOUT); 
+    }
 }
 
 void scroll_down()
 {
     current_select++; 
-    current_select = (current_select < 0) ? 0 : current_select;
+    if (current_select > current_files_num - 1)
+        current_select = current_files_num -1;
 }
 
 void scroll_up()
