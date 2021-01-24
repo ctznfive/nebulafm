@@ -27,8 +27,9 @@ int get_number_of_dirs(char *);
 void get_files_in_array(char *, char *[]);
 int compare_elements(const void *, const void *);
 void make_windows(void);
-WINDOW *create_newwin(int height, int width, int starty, int startx);
+WINDOW *create_newwin(int, int, int, int);
 void print_files(int, char *[]);
+void print_next_line(WINDOW *, int, char *);
 int is_dir(const char *);
 void go_down(void);
 void go_up(void);
@@ -177,9 +178,16 @@ void print_files(int num_files_dir, char *dir_files[])
 {
     int alloc_size = 0;
     char *tmp_path = NULL;
+    int dir_pos = 0;
+    int file_pos = current_dirs_num;
 
     for (int i = 0; i < num_files_dir; i++)
     {
+        if (dir_pos >= term_max_y)
+            break;
+        if (current_dirs_num < term_max_y && file_pos >= term_max_y)
+            break;
+
         alloc_size = snprintf(NULL, 0, "%s/%s", current_dir_path, dir_files[i]);
         tmp_path = malloc(alloc_size + 1);
         if (tmp_path == NULL)
@@ -190,17 +198,22 @@ void print_files(int num_files_dir, char *dir_files[])
         }
         snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[i]);
 
-        if (i == current_select)
-            wattron(current_win, A_STANDOUT); // highlighting
         if (is_dir(tmp_path) != 0)
         {
+            if (dir_pos == current_select)
+                wattron(current_win, A_STANDOUT); // highlighting
             wattron(current_win, COLOR_PAIR(1));
             wattron(current_win, A_BOLD);
+            print_next_line(current_win, dir_pos, dir_files[i]);
+            dir_pos++;
         }
-        wmove(current_win, i + 1, 0);
-        wclrtoeol(current_win); // pre-erase the string for too long file names
-        wmove(current_win, i + 1, 2);
-        wprintw(current_win, "%s", dir_files[i]);
+        else
+        {
+            if (file_pos == current_select)
+                wattron(current_win, A_STANDOUT); // highlighting
+            print_next_line(current_win, file_pos, dir_files[i]);
+            file_pos++;
+        }
 
         wattroff(current_win, COLOR_PAIR(1));
         wattroff(current_win, A_BOLD);
@@ -211,6 +224,14 @@ void print_files(int num_files_dir, char *dir_files[])
     // erase the string if last filename is too long
     wmove(current_win, num_files_dir + 1, 0);
     wclrtoeol(current_win);
+}
+
+void print_next_line(WINDOW *window, int pos, char *str)
+{
+    wmove(window, pos + 1, 0);
+    wclrtoeol(window); // pre-erase the string for too long file names
+    wmove(window, pos + 1, 2);
+    wprintw(window, "%s\n", str);
 }
 
 int is_dir(const char *dir)
