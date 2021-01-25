@@ -17,6 +17,7 @@ char *current_dir_path = NULL;
 int current_files_num = 0; // total number of files including directories
 int current_dirs_num = 0;
 int current_select = 0;
+int first_print_pos = 0;
 WINDOW *current_win;
 
 /* function prototypes */
@@ -61,7 +62,7 @@ int main(int argc, char *argv[])
         print_files(current_files_num, current_dir_files);
 
         box(current_win, 0, 0);
-        //wrefresh(current_win);
+        wrefresh(current_win);
 
         // keybindings
         keypress = wgetch(current_win);
@@ -184,7 +185,7 @@ void print_files(int num_files_dir, char *dir_files[])
     int dir_pos = 0;
     int file_pos = current_dirs_num;
 
-    for (int i = 0; i < num_files_dir; i++)
+    for (int i = first_print_pos; i < num_files_dir; i++)
     {
         if (dir_pos >= term_max_y)
             break;
@@ -250,12 +251,24 @@ void go_down()
     current_select++; 
     if (current_select > current_files_num - 1)
         current_select = current_files_num - 1;
+    /* scrolling */
+    if (current_select > term_max_y - 1)
+    {
+        first_print_pos++;
+        wclear(current_win);
+    }
 }
 
 void go_up()
 {
     current_select--; 
     current_select = (current_select < 0) ? 0 : current_select;
+    /* scrolling */
+    if (current_select <= first_print_pos)
+    {
+        first_print_pos--;
+        wclear(current_win);
+    }
 }
 
 void go_back()
