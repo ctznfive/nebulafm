@@ -34,6 +34,7 @@ int is_dir(const char *);
 void go_down(void);
 void go_up(void);
 void go_back(void);
+void go_forward(char *[]);
 
 
 int main(int argc, char *argv[])
@@ -70,6 +71,8 @@ int main(int argc, char *argv[])
             go_up();
         if (keypress == 'h' && current_dir_path[1] != '\0') // if not root dir
             go_back();
+        if (keypress == 'l')
+            go_forward(current_dir_files);
     } while (keypress != 'q');
 
     free(current_dir_path);
@@ -264,4 +267,33 @@ void go_back()
         current_dir_path[1] = '\0';
     }
     current_select = 0;
+}
+
+void go_forward(char *dir_files[])
+{
+    int alloc_size = snprintf(NULL, 0, "%s/%s", current_dir_path, dir_files[current_select]);
+    char *tmp_path = malloc(alloc_size + 1);
+    if (tmp_path == NULL)
+    {
+        endwin();
+        printf("memory allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+    snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[current_select]);
+
+    if (is_dir(tmp_path) != 0)
+    {
+        free(current_dir_path);
+        alloc_size = snprintf(NULL, 0, "%s/%s", tmp_path);
+        current_dir_path = malloc(alloc_size + 1);
+        if (current_dir_path == NULL)
+        {
+            endwin();
+            printf("memory allocation error\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(current_dir_path, alloc_size + 1, "%s", tmp_path);
+        current_select = 0;
+    }
+    free(tmp_path);
 }
