@@ -32,7 +32,6 @@ void make_windows(void);
 WINDOW *create_newwin(int, int, int, int);
 int print_files(char *[], int, int, int);
 void print_line(WINDOW *, int, char *);
-int is_dir(const char *);
 void go_down(void);
 void go_up(void);
 void go_back(void);
@@ -166,15 +165,17 @@ void get_number_of_files(char *directory, int *dirs, int *files)
     DIR *pDir;
     struct dirent *pDirent;
 
-    pDir = opendir(directory);
-    while ((pDirent = readdir(pDir)) != NULL)
+    if (pDir = opendir(directory))
     {
-        if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0)
-            continue;
-        if (pDirent->d_type == DT_DIR)
-            *dirs += 1;
-        else
-            *files += 1;
+        while ((pDirent = readdir(pDir)) != NULL)
+        {
+            if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0)
+                continue;
+            if (pDirent->d_type == DT_DIR)
+                *dirs += 1;
+            else
+                *files += 1;
+        }
     }
     closedir(pDir);
 }
@@ -186,20 +187,22 @@ void get_files_in_array(char *directory, char *dirs[], char *files[])
     int i = 0;
     int j = 0;
 
-    pDir = opendir(directory);
-    while ((pDirent = readdir(pDir)) != NULL)
+    if (pDir = opendir(directory))
     {
-        if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0)
-            continue;
-        if (pDirent->d_type == DT_DIR)
+        while ((pDirent = readdir(pDir)) != NULL)
         {
-            dirs[i] = strdup(pDirent->d_name);
-            i++;
-        }
-        else
-        {
-            files[j] = strdup(pDirent->d_name);
-            j++;
+            if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0)
+                continue;
+            if (pDirent->d_type == DT_DIR)
+            {
+                dirs[i] = strdup(pDirent->d_name);
+                i++;
+            }
+            else
+            {
+                files[j] = strdup(pDirent->d_name);
+                j++;
+            }
         }
     }
     closedir(pDir);
@@ -248,14 +251,6 @@ void print_line(WINDOW *window, int pos, char *str)
     wclrtoeol(window); // pre-erase the string for too long file names
     wmove(window, pos, 2);
     wprintw(window, "%s\n", str);
-}
-
-int is_dir(const char *dir)
-{
-    struct stat stat_path;
-    if (stat(dir, &stat_path) != 0)
-        return 0;
-    return S_ISDIR(stat_path.st_mode); // non-zero if the file is a directory
 }
 
 void go_down()
@@ -316,8 +311,8 @@ void go_back()
 
 void go_forward_opendir(char *dir_files[])
 {
-    int index = top_file_index + current_select;
-    int alloc_size = snprintf(NULL, 0, "%s/%s", current_dir_path, dir_files[index - 1]);
+    int index = top_file_index + current_select - 1;
+    int alloc_size = snprintf(NULL, 0, "%s/%s", current_dir_path, dir_files[index]);
     char *tmp_path = malloc(alloc_size + 1);
     if (tmp_path == NULL)
     {
@@ -325,22 +320,20 @@ void go_forward_opendir(char *dir_files[])
         printf("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
-    snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index - 1]);
+    snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index]);
 
-    if (is_dir(tmp_path) != 0)
+    free(current_dir_path);
+    alloc_size = snprintf(NULL, 0, "%s/%s", tmp_path);
+    current_dir_path = malloc(alloc_size + 1);
+    if (current_dir_path == NULL)
     {
-        free(current_dir_path);
-        alloc_size = snprintf(NULL, 0, "%s/%s", tmp_path);
-        current_dir_path = malloc(alloc_size + 1);
-        if (current_dir_path == NULL)
-        {
-            endwin();
-            printf("memory allocation error\n");
-            exit(EXIT_FAILURE);
-        }
-        snprintf(current_dir_path, alloc_size + 1, "%s", tmp_path);
-        current_select = 1;
-        top_file_index = 0;
+        endwin();
+        printf("memory allocation error\n");
+        exit(EXIT_FAILURE);
     }
+    snprintf(current_dir_path, alloc_size + 1, "%s", tmp_path);
+
+    current_select = 1;
+    top_file_index = 0;
     free(tmp_path);
 }
