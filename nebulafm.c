@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
         box(current_win, 0, 0);
         wrefresh(current_win);
 
-        // keybindings
+        /* keybindings */
         keypress = wgetch(current_win);
         if (keypress == 'j')
             go_down();
@@ -242,7 +242,7 @@ int print_files(char *dir_files[], int files_num, int start_index, int line_pos)
         line_pos++;
     }
 
-    // erase the string if last filename is too long
+    /* erase the string if last filename is too long */
     wmove(current_win, line_pos, 0);
     wclrtoeol(current_win);
     return line_pos;
@@ -354,6 +354,6 @@ void go_forward_openfile(char *dir_files[])
     }
     snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index]);
 
-//    printf("opening file %s\n", tmp_path); // file path correctness testing
+//  printf("opening file %s\n", tmp_path); // file path correctness testing
     free(tmp_path);
 }
