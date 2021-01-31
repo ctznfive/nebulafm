@@ -36,6 +36,7 @@ void go_down(void);
 void go_up(void);
 void go_back(void);
 void go_forward_opendir(char *[]);
+void go_forward_openfile(char *[]);
 
 int main(int argc, char *argv[])
 {
@@ -116,6 +117,8 @@ int main(int argc, char *argv[])
         if (keypress == 'l')
             if (top_file_index + current_select <= current_dirs_num)
                 go_forward_opendir(current_dir_dirs);
+            else
+                go_forward_openfile(current_dir_files);
     } while (keypress != 'q');
 
     free(current_dir_path);
@@ -335,5 +338,22 @@ void go_forward_opendir(char *dir_files[])
 
     current_select = 1;
     top_file_index = 0;
+    free(tmp_path);
+}
+
+void go_forward_openfile(char *dir_files[])
+{
+    int index = top_file_index + current_select - 1 - current_dirs_num;
+    int alloc_size = snprintf(NULL, 0, "%s/%s", current_dir_path, dir_files[index]);
+    char *tmp_path = malloc(alloc_size + 1);
+    if (tmp_path == NULL)
+    {
+        endwin();
+        printf("memory allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+    snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index]);
+
+//    printf("opening file %s\n", tmp_path); // file path correctness testing
     free(tmp_path);
 }
