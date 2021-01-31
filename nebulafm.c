@@ -14,10 +14,12 @@
 int term_max_x, term_max_y;
 int win_start_x, win_start_y;
 char *current_dir_path = NULL;
+char *dir_name_select = NULL; // highlighting after returning to parent directory
+int back_flag = 0; // changes to 1 after returning to parent directory
 int current_dirs_num;
 int current_files_num;
-int current_select = 1;
-int top_file_index = 0;
+int current_select = 1; // position of the selected line in the window
+int top_file_index = 0; // file index to print the first line of the current window
 WINDOW *current_win;
 
 /* function prototypes */
@@ -34,14 +36,11 @@ int is_dir(const char *);
 void go_down(void);
 void go_up(void);
 void go_back(void);
-void go_forward(char *[]);
-
+void go_forward_opendir(char *[]);
 
 int main(int argc, char *argv[])
 {
-
     int keypress;
-
     init(argc, argv);
     init_curses();
 
@@ -54,14 +53,44 @@ int main(int argc, char *argv[])
         char *current_dir_files[current_files_num];
         get_files_in_array(current_dir_path, current_dir_dirs, current_dir_files);
 
-        // sorting files in dir alphabetically
+        /* sorting files in dir alphabetically */
         qsort(current_dir_dirs, current_dirs_num, sizeof(char *), compare_elements);
         qsort(current_dir_files, current_files_num, sizeof(char *), compare_elements);
 
         getmaxyx(stdscr, term_max_y, term_max_x); // get term size
-        make_windows(); // make two windows + status
+        make_windows(); // make two windows + status bar
 
-        /* print directories*/
+        /* update current_select and top_file_index after go_back() */
+        if (back_flag == 1)
+        {
+            for (int i = 0; i < current_dirs_num; i++)
+            {
+                if (strcmp(current_dir_dirs[i], dir_name_select) == 0)
+                {
+                    if (term_max_y > current_dirs_num)
+                    {
+                        top_file_index = 0;
+                        current_select = i + 1;
+                        break;
+                    }
+                    else if (i <= current_dirs_num - 1 - term_max_y)
+                    {
+                        top_file_index = i;
+                        current_select = 1;
+                        break;
+                    }
+                    else
+                    {
+                        top_file_index = i - (term_max_y - 3);
+                        current_select = term_max_y - 2;
+                        break;
+                    }
+                }
+            }
+            back_flag = 0;
+        }
+
+        /* print directories */
         wattron(current_win, COLOR_PAIR(1));
         wattron(current_win, A_BOLD);
         int line_index = print_files(current_dir_dirs, current_dirs_num, top_file_index, 1);
@@ -75,7 +104,7 @@ int main(int argc, char *argv[])
             print_files(current_dir_files, current_files_num, top_file_index - current_dirs_num, 1);
 
         box(current_win, 0, 0);
-        //wrefresh(current_win);
+        wrefresh(current_win);
 
         // keybindings
         keypress = wgetch(current_win);
@@ -87,18 +116,19 @@ int main(int argc, char *argv[])
             go_back();
         if (keypress == 'l')
             if (top_file_index + current_select <= current_dirs_num)
-                go_forward(current_dir_dirs);
+                go_forward_opendir(current_dir_dirs);
     } while (keypress != 'q');
 
     free(current_dir_path);
+    free(dir_name_select);
     endwin ();
     return EXIT_SUCCESS;
 }
 
-
 void init(int argc, char *argv[])
 {
-    setlocale(LC_ALL, ""); // for wide characters
+    setlocale(LC_ALL, ""); // unicode, etc
+
     char cwd[PATH_MAX];
     getcwd(cwd, sizeof(cwd));
     int alloc_size = snprintf(NULL, 0, "%s", cwd);
@@ -109,15 +139,26 @@ void init(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
     snprintf(current_dir_path, alloc_size + 1, "%s", cwd);
+
+    char *ptr = strrchr(current_dir_path, '/');
+    alloc_size = snprintf(NULL, 0, "%s", ptr);
+    dir_name_select = malloc(alloc_size + 1);
+    if (dir_name_select == NULL)
+    {
+        endwin();
+        printf("memory allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+    snprintf(dir_name_select, alloc_size + 1, "%s", ptr + 1);
 }
 
 void init_curses()
 {
-    initscr(); // start curses mode
+    initscr();
     noecho();
     curs_set(0); // hide the cursor
     start_color();
-    init_pair(1, COLOR_CYAN, 0); // directory highlighting
+    init_pair(1, COLOR_CYAN, 0); // directory highlighting colors
 }
 
 void get_number_of_files(char *directory, int *dirs, int *files)
@@ -214,7 +255,7 @@ int is_dir(const char *dir)
     struct stat stat_path;
     if (stat(dir, &stat_path) != 0)
         return 0;
-    return S_ISDIR(stat_path.st_mode); // macro returns non-zero if the file is a directory
+    return S_ISDIR(stat_path.st_mode); // non-zero if the file is a directory
 }
 
 void go_down()
@@ -223,7 +264,8 @@ void go_down()
     current_select++; 
     if (current_select > files_num)
         current_select = files_num;
-    // scrolling 
+
+    /* scrolling */
     if (current_select > term_max_y - 2)
     {
         if (files_num - top_file_index > term_max_y - 2)
@@ -237,7 +279,8 @@ void go_down()
 void go_up()
 {
     current_select--; 
-    // scrolling 
+
+    /* scrolling */
     if (current_select < 1)
     {
         if (top_file_index > 0)
@@ -249,17 +292,29 @@ void go_up()
 
 void go_back()
 {
+    free(dir_name_select);
+    char *ptr = strrchr(current_dir_path, '/');
+    int alloc_size = snprintf(NULL, 0, "%s", ptr);
+    dir_name_select = malloc(alloc_size + 1);
+    if (dir_name_select == NULL)
+    {
+        endwin();
+        printf("memory allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+    snprintf(dir_name_select, alloc_size + 1, "%s", ptr + 1);
+
     current_dir_path[strrchr(current_dir_path, '/') - current_dir_path] = '\0';
     if (current_dir_path[0] == '\0') // for root dir
     {
         current_dir_path[0] = '/';
         current_dir_path[1] = '\0';
     }
-    current_select = 1;
-    top_file_index = 0;
+
+    back_flag = 1;
 }
 
-void go_forward(char *dir_files[])
+void go_forward_opendir(char *dir_files[])
 {
     int index = top_file_index + current_select;
     int alloc_size = snprintf(NULL, 0, "%s/%s", current_dir_path, dir_files[index - 1]);
