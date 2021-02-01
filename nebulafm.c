@@ -125,6 +125,7 @@ int main(int argc, char *argv[])
 
     free(current_dir_path);
     free(dir_name_select);
+    free(editor);
     endwin ();
     return EXIT_SUCCESS;
 }
@@ -133,15 +134,28 @@ void init(int argc, char *argv[])
 {
     setlocale(LC_ALL, ""); // unicode, etc
 
-    /* vim as default editor */
-    editor = malloc(4);
-    if (editor == NULL)
+    /* set preferred editor */
+    if (getenv("EDITOR") != NULL)
     {
-        endwin();
-        perror("editor initialization error\n");
-        exit(EXIT_FAILURE);
+        int alloc_size = snprintf(NULL, 0, "%s", getenv("EDITOR"));    
+        editor = malloc(alloc_size + 1);
+        if (editor == NULL)
+        {
+            perror("editor initialization error\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(editor, alloc_size + 1, "%s", getenv("EDITOR"));
     }
-    snprintf(editor, 4, "vim");
+    else
+    {
+        editor = malloc(4);
+        if (editor == NULL)
+        {
+            perror("editor initialization error\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(editor, 4, "vim");
+    }
 
     char cwd[PATH_MAX];
     getcwd(cwd, sizeof(cwd));
@@ -385,6 +399,7 @@ void go_forward_openfile(char *dir_files[])
     }
     int status;
     waitpid(pid, &status, 0);
+    refresh();
 
     free(tmp_path);
 }
