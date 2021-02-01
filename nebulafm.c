@@ -9,10 +9,12 @@
 #include <locale.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 
 /* globals */
 int term_max_x, term_max_y;
 int win_start_x, win_start_y;
+char *editor = NULL; // default editor
 char *current_dir_path = NULL;
 char *dir_name_select = NULL; // highlighting after returning to parent directory
 int back_flag = 0; // changes to 1 after returning to parent directory
@@ -131,13 +133,22 @@ void init(int argc, char *argv[])
 {
     setlocale(LC_ALL, ""); // unicode, etc
 
+    /* vim as default editor */
+    editor = malloc(4);
+    if (editor == NULL)
+    {
+        perror("editor initialization error\n");
+        exit(EXIT_FAILURE);
+    }
+    snprintf(editor, 4, "vim");
+
     char cwd[PATH_MAX];
     getcwd(cwd, sizeof(cwd));
     int alloc_size = snprintf(NULL, 0, "%s", cwd);
     current_dir_path = malloc(alloc_size + 1);
     if (current_dir_path == NULL)
     {
-        printf("directory initialization error\n");
+        perror("directory initialization error\n");
         exit(EXIT_FAILURE);
     }
     snprintf(current_dir_path, alloc_size + 1, "%s", cwd);
@@ -148,7 +159,7 @@ void init(int argc, char *argv[])
     if (dir_name_select == NULL)
     {
         endwin();
-        printf("memory allocation error\n");
+        perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
     snprintf(dir_name_select, alloc_size + 1, "%s", ptr + 1);
@@ -297,7 +308,7 @@ void go_back()
     if (dir_name_select == NULL)
     {
         endwin();
-        printf("memory allocation error\n");
+        perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
     snprintf(dir_name_select, alloc_size + 1, "%s", ptr + 1);
@@ -320,7 +331,7 @@ void go_forward_opendir(char *dir_files[])
     if (tmp_path == NULL)
     {
         endwin();
-        printf("memory allocation error\n");
+        perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
     snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index]);
@@ -331,7 +342,7 @@ void go_forward_opendir(char *dir_files[])
     if (current_dir_path == NULL)
     {
         endwin();
-        printf("memory allocation error\n");
+        perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
     snprintf(current_dir_path, alloc_size + 1, "%s", tmp_path);
@@ -349,11 +360,28 @@ void go_forward_openfile(char *dir_files[])
     if (tmp_path == NULL)
     {
         endwin();
-        printf("memory allocation error\n");
+        perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
     snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index]);
 
-//  printf("opening file %s\n", tmp_path); // file path correctness testing
+    /* open file in text editor */
+    endwin();
+    pid_t pid;
+    pid = fork();
+    if (pid == -1)
+    {
+        perror("fork error");
+        exit(EXIT_FAILURE);
+    }
+    if (pid == 0)
+    {
+        execlp(editor, editor, tmp_path, (char *)0);
+        perror("EXEC:");
+        exit(EXIT_FAILURE);
+    }
+    int status;
+    waitpid(pid, &status, 0);
+
     free(tmp_path);
 }
