@@ -137,6 +137,7 @@ void init(int argc, char *argv[])
     editor = malloc(4);
     if (editor == NULL)
     {
+        endwin();
         perror("editor initialization error\n");
         exit(EXIT_FAILURE);
     }
@@ -148,6 +149,7 @@ void init(int argc, char *argv[])
     current_dir_path = malloc(alloc_size + 1);
     if (current_dir_path == NULL)
     {
+        endwin();
         perror("directory initialization error\n");
         exit(EXIT_FAILURE);
     }
@@ -371,6 +373,7 @@ void go_forward_openfile(char *dir_files[])
     pid = fork();
     if (pid == -1)
     {
+        endwin();
         perror("fork error");
         exit(EXIT_FAILURE);
     }
