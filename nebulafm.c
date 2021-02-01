@@ -138,7 +138,7 @@ void init(int argc, char *argv[])
     if (getenv("EDITOR") != NULL)
     {
         int alloc_size = snprintf(NULL, 0, "%s", getenv("EDITOR"));    
-        editor = malloc(alloc_size + 1);
+        editor = (char*) malloc(alloc_size + 1);
         if (editor == NULL)
         {
             perror("editor initialization error\n");
@@ -148,7 +148,7 @@ void init(int argc, char *argv[])
     }
     else
     {
-        editor = malloc(4);
+        editor = (char*) malloc(4);
         if (editor == NULL)
         {
             perror("editor initialization error\n");
@@ -160,7 +160,7 @@ void init(int argc, char *argv[])
     char cwd[PATH_MAX];
     getcwd(cwd, sizeof(cwd));
     int alloc_size = snprintf(NULL, 0, "%s", cwd);
-    current_dir_path = malloc(alloc_size + 1);
+    current_dir_path = (char*) malloc(alloc_size + 1);
     if (current_dir_path == NULL)
     {
         endwin();
@@ -171,7 +171,7 @@ void init(int argc, char *argv[])
 
     char *ptr = strrchr(current_dir_path, '/');
     alloc_size = snprintf(NULL, 0, "%s", ptr);
-    dir_name_select = malloc(alloc_size + 1);
+    dir_name_select = (char*) malloc(alloc_size + 1);
     if (dir_name_select == NULL)
     {
         endwin();
@@ -320,7 +320,7 @@ void go_back()
     free(dir_name_select);
     char *ptr = strrchr(current_dir_path, '/');
     int alloc_size = snprintf(NULL, 0, "%s", ptr);
-    dir_name_select = malloc(alloc_size + 1);
+    dir_name_select = (char*) malloc(alloc_size + 1);
     if (dir_name_select == NULL)
     {
         endwin();
@@ -343,7 +343,7 @@ void go_forward_opendir(char *dir_files[])
 {
     int index = top_file_index + current_select - 1;
     int alloc_size = snprintf(NULL, 0, "%s/%s", current_dir_path, dir_files[index]);
-    char *tmp_path = malloc(alloc_size + 1);
+    char *tmp_path = (char*) malloc(alloc_size + 1);
     if (tmp_path == NULL)
     {
         endwin();
@@ -354,7 +354,7 @@ void go_forward_opendir(char *dir_files[])
 
     free(current_dir_path);
     alloc_size = snprintf(NULL, 0, "%s/%s", tmp_path);
-    current_dir_path = malloc(alloc_size + 1);
+    current_dir_path = (char*) malloc(alloc_size + 1);
     if (current_dir_path == NULL)
     {
         endwin();
@@ -372,7 +372,7 @@ void go_forward_openfile(char *dir_files[])
 {
     int index = top_file_index + current_select - 1 - current_dirs_num;
     int alloc_size = snprintf(NULL, 0, "%s/%s", current_dir_path, dir_files[index]);
-    char *tmp_path = malloc(alloc_size + 1);
+    char *tmp_path = (char*) malloc(alloc_size + 1);
     if (tmp_path == NULL)
     {
         endwin();
