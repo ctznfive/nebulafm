@@ -163,7 +163,6 @@ void init(int argc, char *argv[])
     current_dir_path = (char*) malloc(alloc_size + 1);
     if (current_dir_path == NULL)
     {
-        endwin();
         perror("directory initialization error\n");
         exit(EXIT_FAILURE);
     }
@@ -174,7 +173,6 @@ void init(int argc, char *argv[])
     dir_name_select = (char*) malloc(alloc_size + 1);
     if (dir_name_select == NULL)
     {
-        endwin();
         perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
@@ -399,7 +397,6 @@ void go_forward_openfile(char *dir_files[])
     }
     int status;
     waitpid(pid, &status, 0);
-    refresh();
 
     free(tmp_path);
 }
