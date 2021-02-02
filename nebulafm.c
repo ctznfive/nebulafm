@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
 
 /* globals */
 int term_max_x, term_max_y;
@@ -23,6 +24,7 @@ int current_files_num;
 int current_select = 1; // position of the selected line in the window
 int top_file_index = 0; // file index to print the first line of the current window
 WINDOW *current_win;
+sigset_t signal_set; // represent a signal set
 
 /* function prototypes */
 void init(int, char *[]);
@@ -134,6 +136,10 @@ void init(int argc, char *argv[])
 {
     setlocale(LC_ALL, ""); // unicode, etc
 
+    /* setting a mask to block/unblock SIGWINCH (term window size changed) */
+    sigemptyset (&signal_set);
+    sigaddset(&signal_set, SIGWINCH);
+
     /* set preferred editor */
     if (getenv("EDITOR") != NULL)
     {
@@ -197,8 +203,7 @@ void get_number_of_files(char *directory, int *dirs, int *files)
     {
         while ((pDirent = readdir(pDir)) != NULL)
         {
-            if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0)
-                continue;
+            if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0) continue;
             if (pDirent->d_type == DT_DIR)
                 *dirs += 1;
             else
@@ -247,6 +252,7 @@ void make_windows()
 {
     current_win = create_newwin(term_max_y, term_max_x / 2, 0, 0);
     // later create preview_win and status_win ...
+    sigprocmask(SIG_UNBLOCK, &signal_set, NULL); // unblock SIGWINCH
 }
 
 WINDOW *create_newwin(int height, int width, int starty, int startx)
@@ -381,6 +387,7 @@ void go_forward_openfile(char *dir_files[])
 
     /* open file in text editor */
     endwin();
+    sigprocmask(SIG_BLOCK, &signal_set, NULL); // block SIGWINCH
     pid_t pid;
     pid = fork();
     if (pid == -1)
