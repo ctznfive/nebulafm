@@ -24,7 +24,7 @@ int current_files_num;
 int current_select = 1; // position of the selected line in the window
 int top_file_index = 0; // file index to print the first line of the current window
 WINDOW *current_win;
-sigset_t signal_set; // represent a signal set
+sigset_t signal_set; // represent a signal set to specify what signals are affected
 
 /* function prototypes */
 void init(int, char *[]);
@@ -128,7 +128,8 @@ int main(int argc, char *argv[])
     free(current_dir_path);
     free(dir_name_select);
     free(editor);
-    endwin ();
+    endwin();
+    clear();
     return EXIT_SUCCESS;
 }
 
@@ -404,6 +405,8 @@ void go_forward_openfile(char *dir_files[])
     }
     int status;
     waitpid(pid, &status, 0);
+    refresh();
+    clear();
 
     free(tmp_path);
 }
