@@ -24,6 +24,8 @@ int current_files_num;
 int current_select = 1; // position of the selected line in the window
 int top_file_index = 0; // file index to print the first line of the current window
 WINDOW *current_win;
+WINDOW *preview_win;
+WINDOW *status_bar;
 sigset_t signal_set; // represent a signal set to specify what signals are affected
 
 /* function prototypes */
@@ -62,6 +64,7 @@ int main(int argc, char *argv[])
         qsort(current_dir_files, current_files_num, sizeof(char *), compare_elements);
 
         getmaxyx(stdscr, term_max_y, term_max_x); // get term size
+        term_max_y--; // for status bar
         make_windows(); // make two windows + status bar
 
         /* update current_select and top_file_index after go_back() */
@@ -107,8 +110,13 @@ int main(int argc, char *argv[])
         else
             print_files(current_dir_files, current_files_num, top_file_index - current_dirs_num, 1);
 
+        /* refresh windows */
         box(current_win, 0, 0);
+        box(preview_win, 0, 0);
         wrefresh(current_win);
+        wrefresh(preview_win);
+        print_line(status_bar, 1, "status bar"); // testing
+        wrefresh(status_bar); 
 
         /* keybindings */
         keypress = wgetch(current_win);
@@ -251,9 +259,10 @@ int compare_elements(const void *arg1, const void *arg2)
 
 void make_windows()
 {
-    current_win = create_newwin(term_max_y, term_max_x / 2, 0, 0);
-    // later create preview_win and status_win ...
     sigprocmask(SIG_UNBLOCK, &signal_set, NULL); // unblock SIGWINCH
+    current_win = create_newwin(term_max_y, term_max_x / 2 + 1, 0, 0);
+    preview_win = create_newwin(term_max_y, term_max_x / 2, 0, term_max_x / 2);
+    status_bar = create_newwin(1, term_max_x, term_max_y, 0);
 }
 
 WINDOW *create_newwin(int height, int width, int starty, int startx)
