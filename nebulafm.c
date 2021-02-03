@@ -1,4 +1,4 @@
-// % gcc nebulafm.c -o nebulafm $(ncursesw5-config --cflags --libs)
+// % gcc nebulafm.c -o nebulafm -Wall -ggdb $(ncursesw5-config --cflags --libs)
 
 #include <stdio.h>
 #include <curses.h>
@@ -24,7 +24,7 @@ int current_files_num;
 int current_select = 1; // position of the selected line in the window
 int top_file_index = 0; // file index to print the first line of the current window
 WINDOW *current_win;
-WINDOW *preview_win;
+WINDOW *right_win;
 WINDOW *status_bar;
 sigset_t signal_set; // represent a signal set to specify what signals are affected
 
@@ -112,9 +112,9 @@ int main(int argc, char *argv[])
 
         /* refresh windows */
         box(current_win, 0, 0);
-        box(preview_win, 0, 0);
+        box(right_win, 0, 0);
         wrefresh(current_win);
-        wrefresh(preview_win);
+        wrefresh(right_win);
         print_line(status_bar, 1, "status bar"); // testing
         wrefresh(status_bar); 
 
@@ -127,10 +127,12 @@ int main(int argc, char *argv[])
         if (keypress == 'h' && current_dir_path[1] != '\0') // if not root dir
             go_back();
         if (keypress == 'l')
+        {
             if (top_file_index + current_select <= current_dirs_num)
                 go_forward_opendir(current_dir_dirs);
             else
                 go_forward_openfile(current_dir_files);
+        }
     } while (keypress != 'q');
 
     free(current_dir_path);
@@ -208,11 +210,12 @@ void get_number_of_files(char *directory, int *dirs, int *files)
     DIR *pDir;
     struct dirent *pDirent;
 
-    if (pDir = opendir(directory))
+    if ((pDir = opendir(directory)) != NULL)
     {
         while ((pDirent = readdir(pDir)) != NULL)
         {
-            if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0) continue;
+            if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0)
+                continue;
             if (pDirent->d_type == DT_DIR)
                 *dirs += 1;
             else
@@ -229,7 +232,7 @@ void get_files_in_array(char *directory, char *dirs[], char *files[])
     int i = 0;
     int j = 0;
 
-    if (pDir = opendir(directory))
+    if ((pDir = opendir(directory)) != NULL)
     {
         while ((pDirent = readdir(pDir)) != NULL)
         {
@@ -261,7 +264,7 @@ void make_windows()
 {
     sigprocmask(SIG_UNBLOCK, &signal_set, NULL); // unblock SIGWINCH
     current_win = create_newwin(term_max_y, term_max_x / 2 + 1, 0, 0);
-    preview_win = create_newwin(term_max_y, term_max_x / 2, 0, term_max_x / 2);
+    right_win = create_newwin(term_max_y, term_max_x / 2, 0, term_max_x / 2);
     status_bar = create_newwin(1, term_max_x, term_max_y, 0);
 }
 
@@ -367,7 +370,7 @@ void go_forward_opendir(char *dir_files[])
     snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index]);
 
     free(current_dir_path);
-    alloc_size = snprintf(NULL, 0, "%s/%s", tmp_path);
+    alloc_size = snprintf(NULL, 0, "%s", tmp_path);
     current_dir_path = (char*) malloc(alloc_size + 1);
     if (current_dir_path == NULL)
     {
