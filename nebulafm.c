@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
                         current_select = i + 1;
                         break;
                     }
-                    else if (i <= current_dirs_num - 1 - term_max_y)
+                    else if (i < current_dirs_num - (term_max_y - 2))
                     {
                         top_file_index = i;
                         current_select = 1;
@@ -88,8 +88,8 @@ int main(int argc, char *argv[])
                     }
                     else
                     {
-                        top_file_index = i - (term_max_y - 3);
-                        current_select = term_max_y - 2;
+                        top_file_index = current_dirs_num - (term_max_y - 2);
+                        current_select = term_max_y - 1 - (current_dirs_num - i);
                         break;
                     }
                 }
