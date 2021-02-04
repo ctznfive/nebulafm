@@ -404,7 +404,7 @@ void go_forward_openfile(char *dir_files[])
     const char *filetype = magic_file(magic, tmp_path);
     if (filetype != NULL)
     {
-        if (strstr(filetype, "plain") != NULL || strstr(filetype, "empty") != NULL)
+        if (strstr(filetype, "text") != NULL || strstr(filetype, "empty") != NULL)
         {
             /* open a file in text editor */
             endwin();
