@@ -1,4 +1,4 @@
-// % gcc nebulafm.c -o nebulafm -Wall -ggdb $(ncursesw5-config --cflags --libs)
+// % gcc nebulafm.c -o nebulafm -Wall -ggdb -lmagic $(ncursesw5-config --cflags --libs)
 
 #include <stdio.h>
 #include <curses.h>
@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <magic.h>
 
 /* globals */
 int term_max_x, term_max_y;
@@ -398,27 +399,59 @@ void go_forward_openfile(char *dir_files[])
     }
     snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index]);
 
-    /* open file in text editor */
-    endwin();
-    sigprocmask(SIG_BLOCK, &signal_set, NULL); // block SIGWINCH
-    pid_t pid;
-    pid = fork();
-    if (pid == -1)
+    magic_t magic = magic_open(MAGIC_MIME_TYPE);
+    magic_load(magic, NULL);
+    const char *filetype = magic_file(magic, tmp_path);
+    if (filetype != NULL)
     {
-        endwin();
-        perror("fork error");
-        exit(EXIT_FAILURE);
+        if (strstr(filetype, "plain") != NULL || strstr(filetype, "empty") != NULL)
+        {
+            /* open a file in text editor */
+            endwin();
+            sigprocmask(SIG_BLOCK, &signal_set, NULL); // block SIGWINCH
+            pid_t pid;
+            pid = fork();
+            if (pid == -1)
+            {
+                endwin();
+                perror("fork error\n");
+                exit(EXIT_FAILURE);
+            }
+            if (pid == 0)
+            {
+                execlp(editor, editor, tmp_path, (char *)0);
+                perror("EXEC:\n");
+                exit(EXIT_FAILURE);
+            }
+            int status;
+            waitpid(pid, &status, 0);
+            refresh();
+            clear();
+        }
+        else
+        {
+            /* open a file in the user's preferred application */
+            pid_t pid;
+            pid = fork();
+            if (pid == -1)
+            {
+                endwin();
+                perror("fork error\n");
+                exit(EXIT_FAILURE);
+            }
+            if (pid == 0)
+            {
+                execlp("xdg-open", "xdg-open", tmp_path, (char *)0);
+                perror("EXEC:\n");
+                exit(EXIT_FAILURE);
+            }
+        }
     }
-    if (pid == 0)
+    else
     {
-        execlp(editor, editor, tmp_path, (char *)0);
-        perror("EXEC:");
-        exit(EXIT_FAILURE);
+        perror("an magic_error occurred:\n");
     }
-    int status;
-    waitpid(pid, &status, 0);
-    refresh();
-    clear();
+    magic_close(magic);
 
     free(tmp_path);
 }
