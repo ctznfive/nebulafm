@@ -288,8 +288,11 @@ int print_files(char *dir_files[], int files_num, int start_index, int line_pos)
     }
 
     /* erase the string if last filename is too long */
-    wmove(current_win, line_pos, 0);
-    wclrtoeol(current_win);
+    for (int i = line_pos; i < term_max_y; i++)
+    {
+        wmove(current_win, i, 0);
+        wclrtoeol(current_win);
+    }
     return line_pos;
 }
 
