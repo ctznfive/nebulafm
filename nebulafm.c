@@ -129,6 +129,8 @@ int main(int argc, char *argv[])
             go_back();
         if (keypress == 'l')
         {
+            if (current_dirs_num + current_files_num == 0)
+                continue;
             if (top_file_index + current_select <= current_dirs_num)
                 go_forward_opendir(current_dir_dirs);
             else
