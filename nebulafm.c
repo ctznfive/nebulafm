@@ -44,6 +44,7 @@ void go_up(void);
 void go_back(void);
 void go_forward_opendir(char *[]);
 void go_forward_openfile(char *[]);
+pid_t fork_execlp(char *, char*);
 
 int main(int argc, char *argv[])
 {
@@ -414,23 +415,10 @@ void go_forward_openfile(char *dir_files[])
             strstr(filetype, "sharedlib") != NULL ||
             strstr(filetype, "octet")     != NULL)
         {
-            /* open a file in text editor */
+            /* open a file in default text editor */
             endwin();
             sigprocmask(SIG_BLOCK, &signal_set, NULL); // block SIGWINCH
-            pid_t pid;
-            pid = fork();
-            if (pid == -1)
-            {
-                endwin();
-                perror("fork error\n");
-                exit(EXIT_FAILURE);
-            }
-            if (pid == 0)
-            {
-                execlp(editor, editor, tmp_path, (char *)0);
-                perror("EXEC:\n");
-                exit(EXIT_FAILURE);
-            }
+            pid_t pid = fork_execlp(editor, tmp_path);
             int status;
             waitpid(pid, &status, 0);
             refresh();
@@ -439,20 +427,7 @@ void go_forward_openfile(char *dir_files[])
         else
         {
             /* open a file in the user's preferred application */
-            pid_t pid;
-            pid = fork();
-            if (pid == -1)
-            {
-                endwin();
-                perror("fork error\n");
-                exit(EXIT_FAILURE);
-            }
-            if (pid == 0)
-            {
-                execlp("xdg-open", "xdg-open", tmp_path, (char *)0);
-                perror("EXEC:\n");
-                exit(EXIT_FAILURE);
-            }
+            fork_execlp("xdg-open", tmp_path);
         }
     }
     else
@@ -462,4 +437,23 @@ void go_forward_openfile(char *dir_files[])
     magic_close(magic);
 
     free(tmp_path);
+}
+
+pid_t fork_execlp(char *cmd, char *path)
+{
+    pid_t pid;
+    pid = fork();
+    if (pid == -1)
+    {
+        endwin();
+        perror("fork error\n");
+        exit(EXIT_FAILURE);
+    }
+    if (pid == 0)
+    {
+        execlp(cmd, cmd, path, (char *)0);
+        perror("EXEC:\n");
+        exit(EXIT_FAILURE);
+    }
+    return pid;
 }
