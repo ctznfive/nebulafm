@@ -24,8 +24,8 @@ int current_dirs_num;
 int current_files_num;
 int current_select = 1; // position of the selected line in the window
 int top_file_index = 0; // file index to print the first line of the current window
-WINDOW *current_win;
-WINDOW *right_win;
+WINDOW *left_pane;
+WINDOW *right_pane;
 WINDOW *status_bar;
 sigset_t signal_set; // represent a signal set to specify what signals are affected
 
@@ -100,28 +100,27 @@ int main(int argc, char *argv[])
         }
 
         /* print directories */
-        wattron(current_win, COLOR_PAIR(1));
-        wattron(current_win, A_BOLD);
+        wattron(left_pane, COLOR_PAIR(1));
+        wattron(left_pane, A_BOLD);
         int line_index = print_files(current_dir_dirs, current_dirs_num, top_file_index, 1);
 
         /* print other types of files */
-        wattroff(current_win, COLOR_PAIR(1));
-        wattroff(current_win, A_BOLD);
+        wattroff(left_pane, COLOR_PAIR(1));
+        wattroff(left_pane, A_BOLD);
         if (top_file_index < current_dirs_num)
             print_files(current_dir_files, current_files_num, 0, line_index);
         else
             print_files(current_dir_files, current_files_num, top_file_index - current_dirs_num, 1);
 
         /* refresh windows */
-        box(current_win, 0, 0);
-        box(right_win, 0, 0);
-        wrefresh(current_win);
-        wrefresh(right_win);
-        print_line(status_bar, 1, "status bar"); // testing
+        mvwhline(left_pane, term_max_y - 1 , 0, ACS_HLINE, term_max_x / 2);
+        wrefresh(left_pane);
+        wrefresh(right_pane);
+        print_line(status_bar, 1, current_dir_path);
         wrefresh(status_bar); 
 
         /* keybindings */
-        keypress = wgetch(current_win);
+        keypress = wgetch(left_pane);
         if (keypress == 'j')
             go_down();
         if (keypress == 'k')
@@ -267,8 +266,8 @@ int compare_elements(const void *arg1, const void *arg2)
 void make_windows()
 {
     sigprocmask(SIG_UNBLOCK, &signal_set, NULL); // unblock SIGWINCH
-    current_win = create_newwin(term_max_y, term_max_x / 2 + 1, 0, 0);
-    right_win = create_newwin(term_max_y, term_max_x / 2, 0, term_max_x / 2);
+    left_pane  = create_newwin(term_max_y, term_max_x / 2 + 1, 0, 0);
+    right_pane = create_newwin(term_max_y, term_max_x / 2 + 1, 0, term_max_x / 2);
     status_bar = create_newwin(1, term_max_x, term_max_y, 0);
 }
 
@@ -284,17 +283,17 @@ int print_files(char *dir_files[], int files_num, int start_index, int line_pos)
     for (int i = start_index; i < files_num; i++)
     {
         if (line_pos == current_select)
-            wattron(current_win, A_STANDOUT); // highlighting
-        print_line(current_win, line_pos, dir_files[i]);
-        wattroff(current_win, A_STANDOUT); 
+            wattron(left_pane, A_STANDOUT); // highlighting
+        print_line(left_pane, line_pos, dir_files[i]);
+        wattroff(left_pane, A_STANDOUT); 
         line_pos++;
     }
 
     /* erase the string if last filename is too long */
     for (int i = line_pos; i < term_max_y; i++)
     {
-        wmove(current_win, i, 0);
-        wclrtoeol(current_win);
+        wmove(left_pane, i, 0);
+        wclrtoeol(left_pane);
     }
     return line_pos;
 }
@@ -320,7 +319,7 @@ void go_down()
         if (files_num - top_file_index > term_max_y - 2)
             top_file_index++;
         current_select--;
-        wclear(current_win);
+        wclear(left_pane);
     }
     
 }
@@ -335,7 +334,7 @@ void go_up()
         if (top_file_index > 0)
             top_file_index--;
         current_select = 1; 
-        wclear(current_win);
+        wclear(left_pane);
     }
 }
 
