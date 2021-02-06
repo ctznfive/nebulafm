@@ -45,9 +45,12 @@ void print_line(WINDOW *, int, char *);
 void go_down(void);
 void go_up(void);
 void go_previous(void);
+int is_dir(const char *);
 void open_dir();
 void open_file();
 pid_t fork_execlp(char *, char*);
+void print_status_bar(char *);
+char *human_filesize(double, char *);
 
 int main(int argc, char *argv[])
 {
@@ -142,8 +145,7 @@ int main(int argc, char *argv[])
             wattroff(right_pane, COLOR_PAIR(2));
         }
 
-        /* print status_bar */
-        wprintw(status_bar, "[%02d/%02d]  %s", top_file_index + current_select, current_dirs_num + current_files_num, current_select_path);
+        print_status_bar(current_select_path);
 
         /* refresh windows */
         wrefresh(left_pane);
@@ -418,6 +420,13 @@ void go_previous()
     back_flag = 1;
 }
 
+int is_dir(const char *path)
+{
+    struct stat st;
+    stat(path, &st);
+    return S_ISDIR(st.st_mode);
+}
+
 void open_dir()
 {
     free(current_dir_path);
@@ -485,4 +494,33 @@ pid_t fork_execlp(char *cmd, char *path)
         exit(EXIT_FAILURE);
     }
     return pid;
+}
+
+void print_status_bar(char *path)
+{
+    int file_number = top_file_index + current_select;
+    int files_num = current_dirs_num + current_files_num;
+    if (is_dir(path) == 0)
+    {
+        char buf[10];
+        struct stat st;
+        double size = (stat(path, &st) == 0) ? st.st_size : 0;
+        char *human_size = human_filesize(size, buf);
+        wprintw(status_bar, "[%02d/%02d]  %s  %s", file_number, files_num, human_size, path);
+    }
+    else
+        wprintw(status_bar, "[%02d/%02d]  %s", file_number, files_num, path);
+}
+
+char *human_filesize(double size, char *buf)
+{
+    const char *units[] = {"B", "kB", "MB", "GB", "TB", "PB"};
+    int i = 0;
+    while (size > 1024)
+    {
+        size /= 1024;
+        i++;
+    }
+    sprintf(buf, "%.*f %s", i, size, units[i]);
+    return buf;
 }
