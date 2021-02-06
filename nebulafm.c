@@ -40,12 +40,13 @@ int compare_elements(const void *, const void *);
 void make_windows(void);
 WINDOW *create_newwin(int, int, int, int);
 int print_files(WINDOW *, char *[], int, int, int);
+char *get_select_path(int, char *[]);
 void print_line(WINDOW *, int, char *);
 void go_down(void);
 void go_up(void);
-void go_back(void);
-void go_forward_opendir(char *[]);
-void go_forward_openfile(char *[]);
+void go_previous(void);
+void open_dir();
+void open_file();
 pid_t fork_execlp(char *, char*);
 
 int main(int argc, char *argv[])
@@ -71,7 +72,7 @@ int main(int argc, char *argv[])
         term_max_y--; // for status bar
         make_windows(); // make two windows + status bar
 
-        /* update current_select and top_file_index after go_back() */
+        /* update current_select and top_file_index after go_previous() */
         if (back_flag == 1)
         {
             for (int i = 0; i < current_dirs_num; i++)
@@ -142,7 +143,7 @@ int main(int argc, char *argv[])
         }
 
         /* print status_bar */
-        wprintw(status_bar, "[%02d/%02d] %s", top_file_index + current_select, current_dirs_num + current_files_num, current_select_path);
+        wprintw(status_bar, "[%02d/%02d]  %s", top_file_index + current_select, current_dirs_num + current_files_num, current_select_path);
 
         /* refresh windows */
         wrefresh(left_pane);
@@ -158,15 +159,15 @@ int main(int argc, char *argv[])
         if (keypress == 'k')
             go_up();
         if (keypress == 'h' && current_dir_path[1] != '\0') // if not root dir
-            go_back();
+            go_previous();
         if (keypress == 'l')
         {
             if (current_dirs_num + current_files_num == 0)
                 continue;
             if (top_file_index + current_select <= current_dirs_num)
-                go_forward_opendir(current_dir_dirs);
+                open_dir();
             else
-                go_forward_openfile(current_dir_files);
+                open_file();
         }
     } while (keypress != 'q');
 
@@ -319,19 +320,8 @@ int print_files(WINDOW *win, char *dir_files[], int files_num, int start_index, 
         if (line_pos == current_select)
         {
             wattron(win, A_STANDOUT); // highlighting
-            int alloc_size = snprintf(NULL, 0, "%s/%s", current_dir_path, dir_files[i]);
             free(current_select_path);
-            current_select_path = (char*) malloc(alloc_size + 1);
-            if (current_select_path == NULL)
-            {
-                endwin();
-                perror("memory allocation error\n");
-                exit(EXIT_FAILURE);
-            }
-            if (current_dir_path[1] == '\0') // for root dir
-                snprintf(current_select_path, alloc_size + 1, "%s%s", current_dir_path, dir_files[i]);
-            else
-                snprintf(current_select_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[i]);
+            current_select_path = get_select_path(i, dir_files);
         }
         print_line(win, line_pos, dir_files[i]);
         wattroff(win, A_STANDOUT); 
@@ -345,6 +335,23 @@ int print_files(WINDOW *win, char *dir_files[], int files_num, int start_index, 
         wclrtoeol(win);
     }
     return line_pos;
+}
+
+char *get_select_path(int index, char *dir_files[])
+{
+    int alloc_size = snprintf(NULL, 0, "%s/%s", current_dir_path, dir_files[index]);
+    char *path = (char*) malloc(alloc_size + 1);
+    if (path == NULL)
+    {
+        endwin();
+        perror("memory allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+    if (current_dir_path[1] == '\0') // for root dir
+        snprintf(path, alloc_size + 1, "%s%s", current_dir_path, dir_files[index]);
+    else
+        snprintf(path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index]);
+    return path;
 }
 
 void print_line(WINDOW *window, int pos, char *str)
@@ -387,7 +394,7 @@ void go_up()
     }
 }
 
-void go_back()
+void go_previous()
 {
     free(dir_name_select);
     char *ptr = strrchr(current_dir_path, '/');
@@ -411,24 +418,10 @@ void go_back()
     back_flag = 1;
 }
 
-void go_forward_opendir(char *dir_files[])
+void open_dir()
 {
-    int index = top_file_index + current_select - 1;
-    int alloc_size = snprintf(NULL, 0, "%s/%s", current_dir_path, dir_files[index]);
-    char *tmp_path = (char*) malloc(alloc_size + 1);
-    if (tmp_path == NULL)
-    {
-        endwin();
-        perror("memory allocation error\n");
-        exit(EXIT_FAILURE);
-    }
-    if (current_dir_path[1] == '\0') // for root dir
-        snprintf(tmp_path, alloc_size + 1, "%s%s", current_dir_path, dir_files[index]);
-    else
-        snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index]);
-
     free(current_dir_path);
-    alloc_size = snprintf(NULL, 0, "%s", tmp_path);
+    int alloc_size = snprintf(NULL, 0, "%s", current_select_path);
     current_dir_path = (char*) malloc(alloc_size + 1);
     if (current_dir_path == NULL)
     {
@@ -436,32 +429,17 @@ void go_forward_opendir(char *dir_files[])
         perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
-    snprintf(current_dir_path, alloc_size + 1, "%s", tmp_path);
+    snprintf(current_dir_path, alloc_size + 1, "%s", current_select_path);
 
     current_select = 1;
     top_file_index = 0;
-    free(tmp_path);
 }
 
-void go_forward_openfile(char *dir_files[])
+void open_file()
 {
-    int index = top_file_index + current_select - 1 - current_dirs_num;
-    int alloc_size = snprintf(NULL, 0, "%s/%s", current_dir_path, dir_files[index]);
-    char *tmp_path = (char*) malloc(alloc_size + 1);
-    if (tmp_path == NULL)
-    {
-        endwin();
-        perror("memory allocation error\n");
-        exit(EXIT_FAILURE);
-    }
-    if (current_dir_path[1] == '\0') // for root dir
-        snprintf(tmp_path, alloc_size + 1, "%s%s", current_dir_path, dir_files[index]);
-    else
-        snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index]);
-
     magic_t magic = magic_open(MAGIC_MIME_TYPE);
     magic_load(magic, NULL);
-    const char *filetype = magic_file(magic, tmp_path);
+    const char *filetype = magic_file(magic, current_select_path);
     if (filetype != NULL)
     {
         if (strstr(filetype, "text/")     != NULL ||
@@ -473,7 +451,7 @@ void go_forward_openfile(char *dir_files[])
             /* open a file in default text editor */
             endwin();
             sigprocmask(SIG_BLOCK, &signal_set, NULL); // block SIGWINCH
-            pid_t pid = fork_execlp(editor, tmp_path);
+            pid_t pid = fork_execlp(editor, current_select_path);
             int status;
             waitpid(pid, &status, 0);
             refresh();
@@ -482,16 +460,12 @@ void go_forward_openfile(char *dir_files[])
         else
         {
             /* open a file in the user's preferred application */
-            fork_execlp("xdg-open", tmp_path);
+            fork_execlp("xdg-open", current_select_path);
         }
     }
     else
-    {
         perror("an magic_error occurred:\n");
-    }
     magic_close(magic);
-
-    free(tmp_path);
 }
 
 pid_t fork_execlp(char *cmd, char *path)
