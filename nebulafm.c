@@ -20,6 +20,7 @@ char *editor = NULL; // default editor
 char *current_dir_path = NULL;
 char *dir_name_select = NULL; // highlighting after returning to parent directory
 int back_flag = 0; // changes to 1 after returning to parent directory
+int tab_flag = 0; // 0 - the active panel on the left; 1 - the active panel on the right
 int current_dirs_num;
 int current_files_num;
 int current_select = 1; // position of the selected line in the window
@@ -37,7 +38,7 @@ void get_files_in_array(char *, char *[], char *[]);
 int compare_elements(const void *, const void *);
 void make_windows(void);
 WINDOW *create_newwin(int, int, int, int);
-int print_files(char *[], int, int, int);
+int print_files(WINDOW *, char *[], int, int, int);
 void print_line(WINDOW *, int, char *);
 void go_down(void);
 void go_up(void);
@@ -102,18 +103,44 @@ int main(int argc, char *argv[])
         /* print directories */
         wattron(left_pane, COLOR_PAIR(1));
         wattron(left_pane, A_BOLD);
-        int line_index = print_files(current_dir_dirs, current_dirs_num, top_file_index, 1);
+        wattron(right_pane, COLOR_PAIR(1));
+        wattron(right_pane, A_BOLD);
+        int left_index = print_files(left_pane, current_dir_dirs, current_dirs_num, top_file_index, 1);
+        int right_index = print_files(right_pane, current_dir_dirs, current_dirs_num, top_file_index, 1);
 
         /* print other types of files */
         wattroff(left_pane, COLOR_PAIR(1));
         wattroff(left_pane, A_BOLD);
+        wattroff(right_pane, COLOR_PAIR(1));
+        wattroff(right_pane, A_BOLD);
         if (top_file_index < current_dirs_num)
-            print_files(current_dir_files, current_files_num, 0, line_index);
+        {
+            print_files(left_pane, current_dir_files, current_files_num, 0, left_index);
+            print_files(right_pane, current_dir_files, current_files_num, 0, right_index);
+        }
         else
-            print_files(current_dir_files, current_files_num, top_file_index - current_dirs_num, 1);
+        {
+            print_files(left_pane, current_dir_files, current_files_num, top_file_index - current_dirs_num, 1);
+            print_files(right_pane, current_dir_files, current_files_num, top_file_index - current_dirs_num, 1);
+        }
+
+        /* highlight the active panel */
+        if (tab_flag == 0)
+        {
+            wattron(left_pane, COLOR_PAIR(2));
+            mvwhline(left_pane, term_max_y - 1 , 0, ACS_HLINE, term_max_x / 2);
+            print_line(right_pane, term_max_y - 1, "");
+            wattroff(left_pane, COLOR_PAIR(2));
+        }
+        else
+        {
+            wattron(right_pane, COLOR_PAIR(2));
+            mvwhline(right_pane, term_max_y - 1 , 0, ACS_HLINE, term_max_x / 2);
+            print_line(left_pane, term_max_y - 1, "");
+            wattroff(right_pane, COLOR_PAIR(2));
+        }
 
         /* refresh windows */
-        mvwhline(left_pane, term_max_y - 1 , 0, ACS_HLINE, term_max_x / 2);
         wrefresh(left_pane);
         wrefresh(right_pane);
         print_line(status_bar, 1, current_dir_path);
@@ -121,6 +148,8 @@ int main(int argc, char *argv[])
 
         /* keybindings */
         keypress = wgetch(left_pane);
+        if (keypress == 9) // press tab to change the active panel
+            tab_flag = tab_flag == 0 ? 1 : 0;
         if (keypress == 'j')
             go_down();
         if (keypress == 'k')
@@ -206,6 +235,7 @@ void init_curses()
     curs_set(0); // hide the cursor
     start_color();
     init_pair(1, COLOR_CYAN, 0); // directory highlighting colors
+    init_pair(2, COLOR_RED, 0); // active pane highlighting colors
 }
 
 void get_number_of_files(char *directory, int *dirs, int *files)
@@ -278,22 +308,22 @@ WINDOW *create_newwin(int height, int width, int starty, int startx)
     return local_win;
 }
 
-int print_files(char *dir_files[], int files_num, int start_index, int line_pos)
+int print_files(WINDOW *win, char *dir_files[], int files_num, int start_index, int line_pos)
 {
     for (int i = start_index; i < files_num; i++)
     {
         if (line_pos == current_select)
-            wattron(left_pane, A_STANDOUT); // highlighting
-        print_line(left_pane, line_pos, dir_files[i]);
-        wattroff(left_pane, A_STANDOUT); 
+            wattron(win, A_STANDOUT); // highlighting
+        print_line(win, line_pos, dir_files[i]);
+        wattroff(win, A_STANDOUT); 
         line_pos++;
     }
 
     /* erase the string if last filename is too long */
     for (int i = line_pos; i < term_max_y; i++)
     {
-        wmove(left_pane, i, 0);
-        wclrtoeol(left_pane);
+        wmove(win, i, 0);
+        wclrtoeol(win);
     }
     return line_pos;
 }
