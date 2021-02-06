@@ -38,7 +38,9 @@ void get_number_of_files(char *, int *, int *);
 void get_files_in_array(char *, char *[], char *[]);
 int compare_elements(const void *, const void *);
 void make_windows(void);
+void refresh_windows(void);
 WINDOW *create_newwin(int, int, int, int);
+void update_indexes(char *[]);
 int print_files(WINDOW *, char *[], int, int, int);
 char *get_select_path(int, char *[]);
 void print_line(WINDOW *, int, char *);
@@ -50,7 +52,9 @@ void open_dir();
 void open_file();
 pid_t fork_execlp(char *, char*);
 void print_status_bar(char *);
-char *human_filesize(double, char *);
+char *get_human_filesize(double, char *);
+void highlight_active_panel(int);
+void take_action(int);
 
 int main(int argc, char *argv[])
 {
@@ -73,37 +77,11 @@ int main(int argc, char *argv[])
 
         getmaxyx(stdscr, term_max_y, term_max_x); // get term size
         term_max_y--; // for status bar
-        make_windows(); // make two windows + status bar
+        make_windows(); // make two panes + status bar
 
         /* update current_select and top_file_index after go_previous() */
         if (back_flag == 1)
-        {
-            for (int i = 0; i < current_dirs_num; i++)
-            {
-                if (strcmp(current_dir_dirs[i], dir_name_select) == 0)
-                {
-                    if (term_max_y > current_dirs_num)
-                    {
-                        top_file_index = 0;
-                        current_select = i + 1;
-                        break;
-                    }
-                    else if (i < current_dirs_num - (term_max_y - 2))
-                    {
-                        top_file_index = i;
-                        current_select = 1;
-                        break;
-                    }
-                    else
-                    {
-                        top_file_index = current_dirs_num - (term_max_y - 2);
-                        current_select = term_max_y - 1 - (current_dirs_num - i);
-                        break;
-                    }
-                }
-            }
-            back_flag = 0;
-        }
+            update_indexes(current_dir_dirs);
 
         /* print directories */
         wattron(left_pane, COLOR_PAIR(1));
@@ -129,48 +107,14 @@ int main(int argc, char *argv[])
             print_files(right_pane, current_dir_files, current_files_num, top_file_index - current_dirs_num, 1);
         }
 
-        /* highlight the active panel */
-        if (tab_flag == 0)
-        {
-            wattron(left_pane, COLOR_PAIR(2));
-            mvwhline(left_pane, term_max_y - 1 , 0, ACS_HLINE, term_max_x / 2);
-            print_line(right_pane, term_max_y - 1, "");
-            wattroff(left_pane, COLOR_PAIR(2));
-        }
-        else
-        {
-            wattron(right_pane, COLOR_PAIR(2));
-            mvwhline(right_pane, term_max_y - 1 , 0, ACS_HLINE, term_max_x / 2);
-            print_line(left_pane, term_max_y - 1, "");
-            wattroff(right_pane, COLOR_PAIR(2));
-        }
-
+        highlight_active_panel(tab_flag);
         print_status_bar(current_select_path);
-
-        /* refresh windows */
-        wrefresh(left_pane);
-        wrefresh(right_pane);
-        wrefresh(status_bar); 
+        refresh_windows();
 
         /* keybindings */
         keypress = wgetch(left_pane);
-        if (keypress == 9) // press "tab" to change the active panel
-            tab_flag = tab_flag == 0 ? 1 : 0;
-        if (keypress == 'j')
-            go_down();
-        if (keypress == 'k')
-            go_up();
-        if (keypress == 'h' && current_dir_path[1] != '\0') // if not root dir
-            go_previous();
-        if (keypress == 'l')
-        {
-            if (current_dirs_num + current_files_num == 0)
-                continue;
-            if (top_file_index + current_select <= current_dirs_num)
-                open_dir();
-            else
-                open_file();
-        }
+        take_action(keypress);
+
     } while (keypress != 'q');
 
     free(current_dir_path);
@@ -308,11 +252,47 @@ void make_windows()
     status_bar = create_newwin(1, term_max_x, term_max_y, 0);
 }
 
+void refresh_windows()
+{
+    wrefresh(left_pane);
+    wrefresh(right_pane);
+    wrefresh(status_bar); 
+}
+
 WINDOW *create_newwin(int height, int width, int starty, int startx)
 {
     WINDOW *local_win;
     local_win = newwin(height, width, starty, startx);
     return local_win;
+}
+
+void update_indexes(char *current_dir_dirs[])
+{
+    for (int i = 0; i < current_dirs_num; i++)
+    {
+        if (strcmp(current_dir_dirs[i], dir_name_select) == 0)
+        {
+            if (term_max_y > current_dirs_num)
+            {
+                top_file_index = 0;
+                current_select = i + 1;
+                break;
+            }
+            else if (i < current_dirs_num - (term_max_y - 2))
+            {
+                top_file_index = i;
+                current_select = 1;
+                break;
+            }
+            else
+            {
+                top_file_index = current_dirs_num - (term_max_y - 2);
+                current_select = term_max_y - 1 - (current_dirs_num - i);
+                break;
+            }
+        }
+    }
+    back_flag = 0;
 }
 
 int print_files(WINDOW *win, char *dir_files[], int files_num, int start_index, int line_pos)
@@ -498,21 +478,23 @@ pid_t fork_execlp(char *cmd, char *path)
 
 void print_status_bar(char *path)
 {
-    int file_number = top_file_index + current_select;
     int files_num = current_dirs_num + current_files_num;
+    int file_number = 0;
+    if (files_num != 0)
+        file_number = top_file_index + current_select;
     if (is_dir(path) == 0)
     {
         char buf[10];
         struct stat st;
         double size = (stat(path, &st) == 0) ? st.st_size : 0;
-        char *human_size = human_filesize(size, buf);
+        char *human_size = get_human_filesize(size, buf);
         wprintw(status_bar, "[%02d/%02d]  %s  %s", file_number, files_num, human_size, path);
     }
     else
         wprintw(status_bar, "[%02d/%02d]  %s", file_number, files_num, path);
 }
 
-char *human_filesize(double size, char *buf)
+char *get_human_filesize(double size, char *buf)
 {
     const char *units[] = {"B", "kB", "MB", "GB", "TB", "PB"};
     int i = 0;
@@ -523,4 +505,36 @@ char *human_filesize(double size, char *buf)
     }
     sprintf(buf, "%.*f %s", i, size, units[i]);
     return buf;
+}
+
+void highlight_active_panel(int flag)
+{
+    if (flag == 0)
+    {
+        wattron(left_pane, COLOR_PAIR(2));
+        mvwhline(left_pane, term_max_y - 1 , 0, ACS_HLINE, term_max_x / 2);
+        print_line(right_pane, term_max_y - 1, "");
+        wattroff(left_pane, COLOR_PAIR(2));
+    }
+    else
+    {
+        wattron(right_pane, COLOR_PAIR(2));
+        mvwhline(right_pane, term_max_y - 1 , 0, ACS_HLINE, term_max_x / 2);
+        print_line(left_pane, term_max_y - 1, "");
+        wattroff(right_pane, COLOR_PAIR(2));
+    }
+}
+
+void take_action(int key)
+{
+    if (key == 9) // press "tab" to change the active panel
+        tab_flag = tab_flag == 0 ? 1 : 0;
+    if (key == 'j')
+        go_down();
+    if (key == 'k')
+        go_up();
+    if (key == 'h' && current_dir_path[1] != '\0') // if not root dir
+        go_previous();
+    if (key == 'l')
+        (is_dir(current_select_path) == 0) ? open_file(): open_dir();
 }
