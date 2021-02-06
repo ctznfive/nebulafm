@@ -18,6 +18,7 @@ int term_max_x, term_max_y;
 int win_start_x, win_start_y;
 char *editor = NULL; // default editor
 char *current_dir_path = NULL;
+char *current_select_path = NULL;
 char *dir_name_select = NULL; // highlighting after returning to parent directory
 int back_flag = 0; // changes to 1 after returning to parent directory
 int tab_flag = 0; // 0 - the active panel on the left; 1 - the active panel on the right
@@ -140,10 +141,12 @@ int main(int argc, char *argv[])
             wattroff(right_pane, COLOR_PAIR(2));
         }
 
+        /* print status_bar */
+        wprintw(status_bar, "[%d/%d] %s", top_file_index + current_select, current_dirs_num + current_files_num, current_select_path);
+
         /* refresh windows */
         wrefresh(left_pane);
         wrefresh(right_pane);
-        print_line(status_bar, 1, current_dir_path);
         wrefresh(status_bar); 
 
         /* keybindings */
@@ -168,6 +171,7 @@ int main(int argc, char *argv[])
     } while (keypress != 'q');
 
     free(current_dir_path);
+    free(current_select_path);
     free(dir_name_select);
     free(editor);
     endwin();
@@ -313,7 +317,22 @@ int print_files(WINDOW *win, char *dir_files[], int files_num, int start_index, 
     for (int i = start_index; i < files_num; i++)
     {
         if (line_pos == current_select)
+        {
             wattron(win, A_STANDOUT); // highlighting
+            int alloc_size = snprintf(NULL, 0, "%s/%s", current_dir_path, dir_files[i]);
+            free(current_select_path);
+            current_select_path = (char*) malloc(alloc_size + 1);
+            if (current_select_path == NULL)
+            {
+                endwin();
+                perror("memory allocation error\n");
+                exit(EXIT_FAILURE);
+            }
+            if (current_dir_path[1] == '\0') // for root dir
+                snprintf(current_select_path, alloc_size + 1, "%s%s", current_dir_path, dir_files[i]);
+            else
+                snprintf(current_select_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[i]);
+        }
         print_line(win, line_pos, dir_files[i]);
         wattroff(win, A_STANDOUT); 
         line_pos++;
