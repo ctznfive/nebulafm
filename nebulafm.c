@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
         }
 
         /* print status_bar */
-        wprintw(status_bar, "[%d/%d] %s", top_file_index + current_select, current_dirs_num + current_files_num, current_select_path);
+        wprintw(status_bar, "[%02d/%02d] %s", top_file_index + current_select, current_dirs_num + current_files_num, current_select_path);
 
         /* refresh windows */
         wrefresh(left_pane);
