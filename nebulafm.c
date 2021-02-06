@@ -435,7 +435,10 @@ void go_forward_openfile(char *dir_files[])
         perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
-    snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index]);
+    if (current_dir_path[1] == '\0') // for root dir
+        snprintf(tmp_path, alloc_size + 1, "%s%s", current_dir_path, dir_files[index]);
+    else
+        snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index]);
 
     magic_t magic = magic_open(MAGIC_MIME_TYPE);
     magic_load(magic, NULL);
@@ -445,6 +448,7 @@ void go_forward_openfile(char *dir_files[])
         if (strstr(filetype, "text/")     != NULL ||
             strstr(filetype, "empty")     != NULL ||
             strstr(filetype, "sharedlib") != NULL ||
+            strstr(filetype, "symlink")   != NULL ||
             strstr(filetype, "octet")     != NULL)
         {
             /* open a file in default text editor */
