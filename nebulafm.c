@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
 
         /* keybindings */
         keypress = wgetch(left_pane);
-        if (keypress == 9) // press tab to change the active panel
+        if (keypress == 9) // press "tab" to change the active panel
             tab_flag = tab_flag == 0 ? 1 : 0;
         if (keypress == 'j')
             go_down();
@@ -403,7 +403,10 @@ void go_forward_opendir(char *dir_files[])
         perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
-    snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index]);
+    if (current_dir_path[1] == '\0') // for root dir
+        snprintf(tmp_path, alloc_size + 1, "%s%s", current_dir_path, dir_files[index]);
+    else
+        snprintf(tmp_path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index]);
 
     free(current_dir_path);
     alloc_size = snprintf(NULL, 0, "%s", tmp_path);
