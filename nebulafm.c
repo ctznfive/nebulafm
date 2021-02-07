@@ -92,8 +92,13 @@ int main(int argc, char *argv[])
         /* keybindings */
         if (pane_flag == 0)
             keypress = wgetch(left_pane);
-        if (pane_flag == 1)
+        else if (pane_flag == 1)
             keypress = wgetch(right_pane);
+        else
+        {
+            perror("pane_flag initialization error\n");
+            exit(EXIT_FAILURE);
+        }
         take_action(keypress);
 
     } while (keypress != 'q');
@@ -486,6 +491,11 @@ void print_status(char *path)
         wattron(status_bar, COLOR_PAIR(2));
         mvwhline(status_bar, 0, term_max_x / 2, ACS_HLINE, term_max_x / 2);
         wattroff(status_bar, COLOR_PAIR(2));
+    }
+    else
+    {
+        perror("pane_flag initialization error\n");
+        exit(EXIT_FAILURE);
     }
 
     int num = dirs_num + files_num;
