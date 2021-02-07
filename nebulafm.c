@@ -19,11 +19,11 @@ int win_start_x, win_start_y;
 char *editor = NULL; // default editor
 char *current_dir_path = NULL;
 char *current_select_path = NULL;
-char *dir_name_select = NULL; // highlighting after returning to parent directory
+char *previous_select = NULL; // highlighting after returning to parent directory
 int back_flag = 0; // changes to 1 after returning to parent directory
-int tab_flag = 0; // 0 - the active panel on the left; 1 - the active panel on the right
-int current_dirs_num;
-int current_files_num;
+int pane_flag = 0; // 0 - the active panel on the left; 1 - the active panel on the right
+int dirs_num;
+int files_num;
 int current_select = 1; // position of the selected line in the window
 int top_file_index = 0; // file index to print the first line of the current window
 WINDOW *left_pane;
@@ -39,9 +39,10 @@ void get_files_in_array(char *, char *[], char *[]);
 int compare_elements(const void *, const void *);
 void make_windows(void);
 void refresh_windows(void);
-WINDOW *create_newwin(int, int, int, int);
-void update_indexes(char *[]);
-int print_files(WINDOW *, char *[], int, int, int);
+WINDOW *create_window(int, int, int, int);
+void restore_indexes(char *[], int);
+void print_files(WINDOW *, char *[], char *[], int, int);
+int print_list(WINDOW *, char *[], int, int, int);
 char *get_select_path(int, char *[]);
 void print_line(WINDOW *, int, char *);
 void go_down(void);
@@ -51,9 +52,9 @@ int is_dir(const char *);
 void open_dir();
 void open_file();
 pid_t fork_execlp(char *, char*);
-void print_status_bar(char *);
+void print_status(char *);
 char *get_human_filesize(double, char *);
-void highlight_active_panel(int);
+void highlight_panel(int);
 void take_action(int);
 
 int main(int argc, char *argv[])
@@ -64,62 +65,44 @@ int main(int argc, char *argv[])
 
     do
     {
-        current_dirs_num = 0;
-        current_files_num = 0;
-        get_number_of_files(current_dir_path, &current_dirs_num, &current_files_num);
-        char *current_dir_dirs[current_dirs_num];
-        char *current_dir_files[current_files_num];
-        get_files_in_array(current_dir_path, current_dir_dirs, current_dir_files);
+        dirs_num = 0;
+        files_num = 0;
+        get_number_of_files(current_dir_path, &dirs_num, &files_num);
+        char *dirs_list[dirs_num];
+        char *files_list[files_num];
+        get_files_in_array(current_dir_path, dirs_list, files_list);
 
         /* sorting files in dir alphabetically */
-        qsort(current_dir_dirs, current_dirs_num, sizeof(char *), compare_elements);
-        qsort(current_dir_files, current_files_num, sizeof(char *), compare_elements);
+        qsort(dirs_list, dirs_num, sizeof(char *), compare_elements);
+        qsort(files_list, files_num, sizeof(char *), compare_elements);
 
         getmaxyx(stdscr, term_max_y, term_max_x); // get term size
         term_max_y--; // for status bar
+        sigprocmask(SIG_UNBLOCK, &signal_set, NULL); // unblock SIGWINCH
         make_windows(); // make two panes + status bar
 
         /* update current_select and top_file_index after go_previous() */
         if (back_flag == 1)
-            update_indexes(current_dir_dirs);
+            restore_indexes(dirs_list, dirs_num);
 
-        /* print directories */
-        wattron(left_pane, COLOR_PAIR(1));
-        wattron(left_pane, A_BOLD);
-        wattron(right_pane, COLOR_PAIR(1));
-        wattron(right_pane, A_BOLD);
-        int left_index = print_files(left_pane, current_dir_dirs, current_dirs_num, top_file_index, 1);
-        int right_index = print_files(right_pane, current_dir_dirs, current_dirs_num, top_file_index, 1);
-
-        /* print other types of files */
-        wattroff(left_pane, COLOR_PAIR(1));
-        wattroff(left_pane, A_BOLD);
-        wattroff(right_pane, COLOR_PAIR(1));
-        wattroff(right_pane, A_BOLD);
-        if (top_file_index < current_dirs_num)
-        {
-            print_files(left_pane, current_dir_files, current_files_num, 0, left_index);
-            print_files(right_pane, current_dir_files, current_files_num, 0, right_index);
-        }
-        else
-        {
-            print_files(left_pane, current_dir_files, current_files_num, top_file_index - current_dirs_num, 1);
-            print_files(right_pane, current_dir_files, current_files_num, top_file_index - current_dirs_num, 1);
-        }
-
-        highlight_active_panel(tab_flag);
-        print_status_bar(current_select_path);
+        /* print and refresh */
+        print_files(left_pane, dirs_list, files_list, dirs_num, files_num);
+        highlight_panel(pane_flag);
+        print_status(current_select_path);
         refresh_windows();
 
         /* keybindings */
-        keypress = wgetch(left_pane);
+        if (pane_flag == 0)
+            keypress = wgetch(left_pane);
+        if (pane_flag == 1)
+            keypress = wgetch(right_pane);
         take_action(keypress);
 
     } while (keypress != 'q');
 
     free(current_dir_path);
     free(current_select_path);
-    free(dir_name_select);
+    free(previous_select);
     free(editor);
     endwin();
     clear();
@@ -170,13 +153,13 @@ void init(int argc, char *argv[])
 
     char *ptr = strrchr(current_dir_path, '/');
     alloc_size = snprintf(NULL, 0, "%s", ptr);
-    dir_name_select = (char*) malloc(alloc_size + 1);
-    if (dir_name_select == NULL)
+    previous_select = (char*) malloc(alloc_size + 1);
+    if (previous_select == NULL)
     {
         perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
-    snprintf(dir_name_select, alloc_size + 1, "%s", ptr + 1);
+    snprintf(previous_select, alloc_size + 1, "%s", ptr + 1);
 }
 
 void init_curses()
@@ -246,10 +229,9 @@ int compare_elements(const void *arg1, const void *arg2)
 
 void make_windows()
 {
-    sigprocmask(SIG_UNBLOCK, &signal_set, NULL); // unblock SIGWINCH
-    left_pane  = create_newwin(term_max_y, term_max_x / 2 + 1, 0, 0);
-    right_pane = create_newwin(term_max_y, term_max_x / 2 + 1, 0, term_max_x / 2);
-    status_bar = create_newwin(1, term_max_x, term_max_y, 0);
+    left_pane  = create_window(term_max_y, term_max_x / 2 + 1, 0, 0);
+    right_pane = create_window(term_max_y, term_max_x / 2 + 1, 0, term_max_x / 2);
+    status_bar = create_window(1, term_max_x, term_max_y, 0);
 }
 
 void refresh_windows()
@@ -259,26 +241,26 @@ void refresh_windows()
     wrefresh(status_bar); 
 }
 
-WINDOW *create_newwin(int height, int width, int starty, int startx)
+WINDOW *create_window(int height, int width, int starty, int startx)
 {
-    WINDOW *local_win;
-    local_win = newwin(height, width, starty, startx);
-    return local_win;
+    WINDOW *win;
+    win = newwin(height, width, starty, startx);
+    return win;
 }
 
-void update_indexes(char *current_dir_dirs[])
+void restore_indexes(char *dirs[], int num)
 {
-    for (int i = 0; i < current_dirs_num; i++)
+    for (int i = 0; i < num; i++)
     {
-        if (strcmp(current_dir_dirs[i], dir_name_select) == 0)
+        if (strcmp(dirs[i], previous_select) == 0)
         {
-            if (term_max_y > current_dirs_num)
+            if (term_max_y > num)
             {
                 top_file_index = 0;
                 current_select = i + 1;
                 break;
             }
-            else if (i < current_dirs_num - (term_max_y - 2))
+            else if (i < num - (term_max_y - 2))
             {
                 top_file_index = i;
                 current_select = 1;
@@ -286,8 +268,8 @@ void update_indexes(char *current_dir_dirs[])
             }
             else
             {
-                top_file_index = current_dirs_num - (term_max_y - 2);
-                current_select = term_max_y - 1 - (current_dirs_num - i);
+                top_file_index = num - (term_max_y - 2);
+                current_select = term_max_y - 1 - (num - i);
                 break;
             }
         }
@@ -295,17 +277,33 @@ void update_indexes(char *current_dir_dirs[])
     back_flag = 0;
 }
 
-int print_files(WINDOW *win, char *dir_files[], int files_num, int start_index, int line_pos)
+void print_files(WINDOW *win, char *dirs_list[], char *files_list[], int dirs_num, int files_num)
 {
-    for (int i = start_index; i < files_num; i++)
+    /* print directories */
+    wattron(win, COLOR_PAIR(1));
+    wattron(win, A_BOLD);
+    int index = print_list(win, dirs_list, dirs_num, top_file_index, 1);
+
+    /* print other types of files */
+    wattroff(win, COLOR_PAIR(1));
+    wattroff(win, A_BOLD);
+    if (top_file_index < dirs_num)
+        print_list(win, files_list, files_num, 0, index);
+    else
+        print_list(win, files_list, files_num, top_file_index - dirs_num, 1);
+}
+
+int print_list(WINDOW *win, char *list[], int num, int start_index, int line_pos)
+{
+    for (int i = start_index; i < num; i++)
     {
         if (line_pos == current_select)
         {
             wattron(win, A_STANDOUT); // highlighting
             free(current_select_path);
-            current_select_path = get_select_path(i, dir_files);
+            current_select_path = get_select_path(i, list); // change the selection path
         }
-        print_line(win, line_pos, dir_files[i]);
+        print_line(win, line_pos, list[i]);
         wattroff(win, A_STANDOUT); 
         line_pos++;
     }
@@ -319,9 +317,9 @@ int print_files(WINDOW *win, char *dir_files[], int files_num, int start_index, 
     return line_pos;
 }
 
-char *get_select_path(int index, char *dir_files[])
+char *get_select_path(int index, char *list[])
 {
-    int alloc_size = snprintf(NULL, 0, "%s/%s", current_dir_path, dir_files[index]);
+    int alloc_size = snprintf(NULL, 0, "%s/%s", current_dir_path, list[index]);
     char *path = (char*) malloc(alloc_size + 1);
     if (path == NULL)
     {
@@ -330,9 +328,9 @@ char *get_select_path(int index, char *dir_files[])
         exit(EXIT_FAILURE);
     }
     if (current_dir_path[1] == '\0') // for root dir
-        snprintf(path, alloc_size + 1, "%s%s", current_dir_path, dir_files[index]);
+        snprintf(path, alloc_size + 1, "%s%s", current_dir_path, list[index]);
     else
-        snprintf(path, alloc_size + 1, "%s/%s", current_dir_path, dir_files[index]);
+        snprintf(path, alloc_size + 1, "%s/%s", current_dir_path, list[index]);
     return path;
 }
 
@@ -346,15 +344,15 @@ void print_line(WINDOW *window, int pos, char *str)
 
 void go_down()
 {
-    int files_num = current_dirs_num + current_files_num;
+    int num = dirs_num + files_num;
     current_select++; 
-    if (current_select > files_num)
-        current_select = files_num;
+    if (current_select > num)
+        current_select = num;
 
     /* scrolling */
     if (current_select > term_max_y - 2)
     {
-        if (files_num - top_file_index > term_max_y - 2)
+        if (num - top_file_index > term_max_y - 2)
             top_file_index++;
         current_select--;
         wclear(left_pane);
@@ -378,17 +376,17 @@ void go_up()
 
 void go_previous()
 {
-    free(dir_name_select);
+    free(previous_select);
     char *ptr = strrchr(current_dir_path, '/');
     int alloc_size = snprintf(NULL, 0, "%s", ptr);
-    dir_name_select = (char*) malloc(alloc_size + 1);
-    if (dir_name_select == NULL)
+    previous_select = (char*) malloc(alloc_size + 1);
+    if (previous_select == NULL)
     {
         endwin();
         perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
-    snprintf(dir_name_select, alloc_size + 1, "%s", ptr + 1);
+    snprintf(previous_select, alloc_size + 1, "%s", ptr + 1);
 
     current_dir_path[strrchr(current_dir_path, '/') - current_dir_path] = '\0';
     if (current_dir_path[0] == '\0') // for root dir
@@ -404,7 +402,7 @@ int is_dir(const char *path)
 {
     struct stat st;
     stat(path, &st);
-    return S_ISDIR(st.st_mode);
+    return S_ISDIR(st.st_mode); // returns non-zero if the file is a directory
 }
 
 void open_dir()
@@ -476,11 +474,11 @@ pid_t fork_execlp(char *cmd, char *path)
     return pid;
 }
 
-void print_status_bar(char *path)
+void print_status(char *path)
 {
-    int files_num = current_dirs_num + current_files_num;
+    int num = dirs_num + files_num;
     int file_number = 0;
-    if (files_num != 0)
+    if (num != 0)
         file_number = top_file_index + current_select;
     if (is_dir(path) == 0)
     {
@@ -488,10 +486,10 @@ void print_status_bar(char *path)
         struct stat st;
         double size = (stat(path, &st) == 0) ? st.st_size : 0;
         char *human_size = get_human_filesize(size, buf);
-        wprintw(status_bar, "[%02d/%02d]  %s  %s", file_number, files_num, human_size, path);
+        wprintw(status_bar, "[%02d/%02d]  %s  %s", file_number, num, human_size, path);
     }
     else
-        wprintw(status_bar, "[%02d/%02d]  %s", file_number, files_num, path);
+        wprintw(status_bar, "[%02d/%02d]  %s", file_number, num, path);
 }
 
 char *get_human_filesize(double size, char *buf)
@@ -507,7 +505,7 @@ char *get_human_filesize(double size, char *buf)
     return buf;
 }
 
-void highlight_active_panel(int flag)
+void highlight_panel(int flag)
 {
     if (flag == 0)
     {
@@ -528,7 +526,7 @@ void highlight_active_panel(int flag)
 void take_action(int key)
 {
     if (key == 9) // press "tab" to change the active panel
-        tab_flag = tab_flag == 0 ? 1 : 0;
+        pane_flag = pane_flag == 0 ? 1 : 0;
     if (key == 'j')
         go_down();
     if (key == 'k')
@@ -536,5 +534,5 @@ void take_action(int key)
     if (key == 'h' && current_dir_path[1] != '\0') // if not root dir
         go_previous();
     if (key == 'l')
-        (is_dir(current_select_path) == 0) ? open_file(): open_dir();
+        (is_dir(current_select_path) == 0) ? open_file() : open_dir();
 }
