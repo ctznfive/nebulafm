@@ -54,7 +54,6 @@ void open_file();
 pid_t fork_execlp(char *, char*);
 void print_status(char *);
 char *get_human_filesize(double, char *);
-void highlight_panel(int);
 void take_action(int);
 
 int main(int argc, char *argv[])
@@ -87,7 +86,6 @@ int main(int argc, char *argv[])
 
         /* print and refresh */
         print_files(left_pane, dirs_list, files_list, dirs_num, files_num);
-        highlight_panel(pane_flag);
         print_status(current_select_path);
         refresh_windows();
 
@@ -231,7 +229,7 @@ void make_windows()
 {
     left_pane  = create_window(term_max_y, term_max_x / 2 + 1, 0, 0);
     right_pane = create_window(term_max_y, term_max_x / 2 + 1, 0, term_max_x / 2);
-    status_bar = create_window(1, term_max_x, term_max_y, 0);
+    status_bar = create_window(2, term_max_x, term_max_y - 1, 0);
 }
 
 void refresh_windows()
@@ -476,6 +474,20 @@ pid_t fork_execlp(char *cmd, char *path)
 
 void print_status(char *path)
 {
+    /* highlight the active pane*/
+    if (pane_flag == 0)
+    {
+        wattron(status_bar, COLOR_PAIR(2));
+        mvwhline(status_bar, 0, 0, ACS_HLINE, term_max_x / 2);
+        wattroff(status_bar, COLOR_PAIR(2));
+    }
+    else if (pane_flag == 1)
+    {
+        wattron(status_bar, COLOR_PAIR(2));
+        mvwhline(status_bar, 0, term_max_x / 2, ACS_HLINE, term_max_x / 2);
+        wattroff(status_bar, COLOR_PAIR(2));
+    }
+
     int num = dirs_num + files_num;
     int file_number = 0;
     if (num != 0)
@@ -486,10 +498,14 @@ void print_status(char *path)
         struct stat st;
         double size = (stat(path, &st) == 0) ? st.st_size : 0;
         char *human_size = get_human_filesize(size, buf);
+        wmove(status_bar, 1, 0);
         wprintw(status_bar, "[%02d/%02d]  %s  %s", file_number, num, human_size, path);
     }
     else
+    {
+        wmove(status_bar, 1, 0);
         wprintw(status_bar, "[%02d/%02d]  %s", file_number, num, path);
+    }
 }
 
 char *get_human_filesize(double size, char *buf)
@@ -505,28 +521,10 @@ char *get_human_filesize(double size, char *buf)
     return buf;
 }
 
-void highlight_panel(int flag)
-{
-    if (flag == 0)
-    {
-        wattron(left_pane, COLOR_PAIR(2));
-        mvwhline(left_pane, term_max_y - 1 , 0, ACS_HLINE, term_max_x / 2);
-        print_line(right_pane, term_max_y - 1, "");
-        wattroff(left_pane, COLOR_PAIR(2));
-    }
-    else
-    {
-        wattron(right_pane, COLOR_PAIR(2));
-        mvwhline(right_pane, term_max_y - 1 , 0, ACS_HLINE, term_max_x / 2);
-        print_line(left_pane, term_max_y - 1, "");
-        wattroff(right_pane, COLOR_PAIR(2));
-    }
-}
-
 void take_action(int key)
 {
     if (key == 9) // press "tab" to change the active panel
-        pane_flag = pane_flag == 0 ? 1 : 0;
+        pane_flag = (pane_flag == 0) ? 1 : 0;
     if (key == 'j')
         go_down();
     if (key == 'k')
