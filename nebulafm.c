@@ -237,9 +237,8 @@ void init_curses()
     noecho();
     curs_set(0); // hide the cursor
     start_color();
-    init_pair(1, COLOR_CYAN, 0);    // colors : directory 
-    init_pair(2, COLOR_RED, 0);     // colors : active pane
-    init_pair(3, COLOR_MAGENTA, 0); // colors : status bar
+    init_pair(1, COLOR_CYAN, 0); // colors : directory 
+    init_pair(2, COLOR_RED, 0);  // colors : active pane
 }
 
 void get_number_of_files(pane *pane)
@@ -559,16 +558,12 @@ void print_status(pane *pane)
         double size = (stat(pane->select_path, &st) == 0) ? st.st_size : 0;
         char *human_size = get_human_filesize(size, buf);
         wmove(status_bar, 1, 0);
-        wattron(status_bar, COLOR_PAIR(3));
         wprintw(status_bar, "[%02d/%02d]  %s  %s", file_number, num, human_size, pane->select_path);
-        wattroff(status_bar, COLOR_PAIR(3));
     }
     else
     {
         wmove(status_bar, 1, 0);
-        wattron(status_bar, COLOR_PAIR(3));
         wprintw(status_bar, "[%02d/%02d]  %s", file_number, num, pane->select_path);
-        wattroff(status_bar, COLOR_PAIR(3));
     }
 }
 
