@@ -13,6 +13,9 @@
 #include <signal.h>
 #include <magic.h>
 
+#define KEY_TAB 9
+#define KEY_RETURN 10
+
 /* globals */
 typedef struct pane
 {
@@ -71,6 +74,11 @@ int main(int argc, char *argv[])
 
     do
     {
+        getmaxyx(stdscr, term_max_y, term_max_x); // get term size
+        term_max_y--; // for status bar
+        make_windows(); // make two panes + status bar
+
+        /* fill in the arrays of all files in the current directory */
         get_number_of_files(&left_pane);
         char *dirs_list_l[left_pane.dirs_num];
         char *files_list_l[left_pane.files_num];
@@ -86,11 +94,6 @@ int main(int argc, char *argv[])
         qsort(files_list_l, left_pane.files_num, sizeof(char *), compare_elements);
         qsort(dirs_list_r, right_pane.dirs_num, sizeof(char *), compare_elements);
         qsort(files_list_r, right_pane.files_num, sizeof(char *), compare_elements);
-
-        getmaxyx(stdscr, term_max_y, term_max_x); // get term size
-        term_max_y--; // for status bar
-        sigprocmask(SIG_UNBLOCK, &signal_set, NULL); // unblock SIGWINCH
-        make_windows(); // make two panes + status bar
 
         /* update 'select' and 'top_index' after go_previous() */
         if (back_flag == 1)
@@ -303,6 +306,9 @@ void make_windows()
     left_pane.win  = create_window(term_max_y, term_max_x / 2 + 1, 0, 0);
     right_pane.win = create_window(term_max_y, term_max_x / 2 + 1, 0, term_max_x / 2);
     status_bar = create_window(2, term_max_x, term_max_y - 1, 0);
+    keypad (left_pane.win, TRUE);
+    keypad (right_pane.win, TRUE);
+    sigprocmask(SIG_UNBLOCK, &signal_set, NULL); // unblock SIGWINCH
 }
 
 void refresh_windows()
@@ -582,14 +588,28 @@ char *get_human_filesize(double size, char *buf)
 
 void take_action(int key, pane *pane)
 {
-    if (key == 9) // press "tab" to change the active panel
-        pane_flag = (pane_flag == 0) ? 1 : 0;
-    if (key == 'j')
-        go_down(pane);
-    if (key == 'k')
-        go_up(pane);
-    if (key == 'h' && pane->path[1] != '\0') // if not root dir
-        go_previous(pane);
-    if (key == 'l')
-        (is_dir(pane->select_path) == 0) ? open_file(pane) : open_dir(pane);
+    switch (key)
+    {
+        case KEY_TAB: // press "tab" to change the active panel
+            pane_flag = (pane_flag == 0) ? 1 : 0;
+            break;
+        case 'k':
+        case KEY_UP:
+            go_up(pane);
+            break;
+        case 'j':
+        case KEY_DOWN:
+            go_down(pane);
+            break;
+        case 'h':
+        case KEY_LEFT:
+            if (pane->path[1] != '\0') // if not root dir
+                go_previous(pane);
+            break;
+        case 'l':
+        case KEY_RIGHT:
+        case KEY_RETURN:    
+            (is_dir(pane->select_path) == 0) ? open_file(pane) : open_dir(pane);
+            break;
+    }
 }
