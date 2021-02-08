@@ -15,26 +15,40 @@
 
 /* globals */
 int term_max_x, term_max_y;
-int win_start_x, win_start_y;
 char *editor = NULL; // default editor
-char *current_dir_path = NULL;
-char *current_select_path = NULL;
-char *previous_select = NULL; // highlighting after returning to parent directory
+sigset_t signal_set; // represent a signal set to specify what signals are affected
 int back_flag = 0; // changes to 1 after returning to parent directory
 int pane_flag = 0; // 0 - the active panel on the left; 1 - the active panel on the right
-int dirs_num;
-int files_num;
-int current_select = 1; // position of the selected line in the window
-int top_file_index = 0; // file index to print the first line of the current window
 WINDOW *left_pane;
 WINDOW *right_pane;
 WINDOW *status_bar;
-sigset_t signal_set; // represent a signal set to specify what signals are affected
+char *current_dir_path = NULL;
+int dirs_num;
+int files_num;
+int top_file_index = 0; // file index to print the first line of the current window
+int current_select = 1; // position of the selected line in the window
+char *current_select_path = NULL;
+char *previous_select = NULL; // highlighting after returning to parent directory
+
+/*
+typedef struct pane
+{
+    WINDOW *win;
+    char *path;
+    int top_index;
+    int select;
+} pane;
+
+pane left_pane  = { .select = 1 };
+pane right_pane = { .select = 1 };
+*/
 
 /* function prototypes */
-void init(int, char *[]);
+void init(void);
+void set_editor(void);
+void init_paths(void);
 void init_curses(void);
-void get_number_of_files(char *, int *, int *);
+void get_number_of_files(char *);
 void get_files_in_array(char *, char *[], char *[]);
 int compare_elements(const void *, const void *);
 void make_windows(void);
@@ -59,14 +73,13 @@ void take_action(int);
 int main(int argc, char *argv[])
 {
     int keypress;
-    init(argc, argv);
+    init();
+    init_paths();
     init_curses();
 
     do
     {
-        dirs_num = 0;
-        files_num = 0;
-        get_number_of_files(current_dir_path, &dirs_num, &files_num);
+        get_number_of_files(current_dir_path);
         char *dirs_list[dirs_num];
         char *files_list[files_num];
         get_files_in_array(current_dir_path, dirs_list, files_list);
@@ -86,19 +99,12 @@ int main(int argc, char *argv[])
 
         /* print and refresh */
         print_files(left_pane, dirs_list, files_list, dirs_num, files_num);
+        print_files(right_pane, dirs_list, files_list, dirs_num, files_num);
         print_status(current_select_path);
         refresh_windows();
 
         /* keybindings */
-        if (pane_flag == 0)
-            keypress = wgetch(left_pane);
-        else if (pane_flag == 1)
-            keypress = wgetch(right_pane);
-        else
-        {
-            perror("pane_flag initialization error\n");
-            exit(EXIT_FAILURE);
-        }
+        keypress = wgetch(left_pane);
         take_action(keypress);
 
     } while (keypress != 'q');
@@ -112,15 +118,18 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-void init(int argc, char *argv[])
+void init()
 {
     setlocale(LC_ALL, ""); // unicode, etc
+    set_editor();
 
     /* setting a mask to block/unblock SIGWINCH (term window size changed) */
     sigemptyset (&signal_set);
     sigaddset(&signal_set, SIGWINCH);
+}
 
-    /* set preferred editor */
+void set_editor()
+{
     if (getenv("EDITOR") != NULL)
     {
         int alloc_size = snprintf(NULL, 0, "%s", getenv("EDITOR"));    
@@ -142,7 +151,10 @@ void init(int argc, char *argv[])
         }
         snprintf(editor, 4, "vim");
     }
+}
 
+void init_paths()
+{
     char cwd[PATH_MAX];
     getcwd(cwd, sizeof(cwd));
     int alloc_size = snprintf(NULL, 0, "%s", cwd);
@@ -175,10 +187,12 @@ void init_curses()
     init_pair(2, COLOR_RED, 0); // active pane highlighting colors
 }
 
-void get_number_of_files(char *directory, int *dirs, int *files)
+void get_number_of_files(char *directory)
 {
     DIR *pDir;
     struct dirent *pDirent;
+    dirs_num = 0;
+    files_num = 0;
 
     if ((pDir = opendir(directory)) != NULL)
     {
@@ -187,9 +201,9 @@ void get_number_of_files(char *directory, int *dirs, int *files)
             if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0)
                 continue;
             if (pDirent->d_type == DT_DIR)
-                *dirs += 1;
+                dirs_num += 1;
             else
-                *files += 1;
+                files_num += 1;
         }
     }
     closedir(pDir);
