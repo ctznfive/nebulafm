@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
         term_max_y--; // for status bar
         make_windows(); // make two panes + status bar
 
-        /* fill in the arrays of all files in the current directory */
+        /* fill in variable-length arrays of all files in the current directory */
         get_number_of_files(&left_pane);
         char *dirs_list_l[left_pane.dirs_num];
         char *files_list_l[left_pane.files_num];
@@ -510,6 +510,7 @@ void open_file(pane *pane)
         if (strstr(filetype, "text/")     != NULL ||
             strstr(filetype, "empty")     != NULL ||
             strstr(filetype, "sharedlib") != NULL ||
+            strstr(filetype, "zip")       != NULL ||
             strstr(filetype, "symlink")   != NULL ||
             strstr(filetype, "octet")     != NULL)
         {
@@ -519,8 +520,6 @@ void open_file(pane *pane)
             pid_t pid = fork_execlp(editor, pane->select_path);
             int status;
             waitpid(pid, &status, 0);
-            refresh();
-            clear();
         }
         else
         {
@@ -547,7 +546,7 @@ pid_t fork_execlp(char *cmd, char *path)
     {
         int fd = open("/dev/null", O_WRONLY);
         dup2(fd, STDERR_FILENO);
-        close(fd);
+        close(fd); // stderr now write to /dev/null
         execlp(cmd, cmd, path, (char *)0);
         perror("EXEC:\n");
         exit(EXIT_FAILURE);
