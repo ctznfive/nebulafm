@@ -12,6 +12,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <magic.h>
+#include <fcntl.h>
 
 #define KEY_TAB 9
 #define KEY_RETURN 10
@@ -544,6 +545,9 @@ pid_t fork_execlp(char *cmd, char *path)
     }
     if (pid == 0)
     {
+        int fd = open("/dev/null", O_WRONLY);
+        dup2(fd, STDERR_FILENO);
+        close(fd);
         execlp(cmd, cmd, path, (char *)0);
         perror("EXEC:\n");
         exit(EXIT_FAILURE);
