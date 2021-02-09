@@ -126,6 +126,8 @@ int main(int argc, char *argv[])
 
             /* keybindings */
             keypress = wgetch(left_pane.win);
+            if (keypress == ERR)
+                continue;
             take_action(keypress, &left_pane);
         }
         else if (pane_flag == 1)
@@ -140,6 +142,8 @@ int main(int argc, char *argv[])
 
             /* keybindings */
             keypress = wgetch(right_pane.win);
+            if (keypress == ERR)
+                continue;
             take_action(keypress, &right_pane);
         }
         else
@@ -240,6 +244,7 @@ void init_curses()
     initscr();
     noecho();
     curs_set(0); // hide the cursor
+    halfdelay(20);
     start_color();
     init_pair(1, COLOR_CYAN, 0); // colors : directory 
     init_pair(2, COLOR_RED, 0);  // colors : active pane
