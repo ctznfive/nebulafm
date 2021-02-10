@@ -34,7 +34,7 @@ pane;
 pane left_pane  = { .select = 1 };
 pane right_pane = { .select = 1 };
 WINDOW *status_bar;
-int term_max_x, term_max_y;
+int termsize_x, termsize_y;
 int refresh_time = 50; // Refresh every 5 seconds
 char *editor = NULL; // Default editor
 sigset_t signal_set; // Represent a signal set to specify what signals are affected
@@ -42,7 +42,7 @@ int back_flag = 0; // Changes to 1 after returning to parent directory
 int pane_flag = 0; // 0 - the active panel on the left; 1 - the active panel on the right
 
 /* Prototypes */
-void init(void);
+void init_common(void);
 void set_editor(void);
 void init_paths(void);
 void init_curses(void);
@@ -64,6 +64,7 @@ int is_dir(const char *);
 void open_dir(pane *);
 void open_file(pane *);
 pid_t fork_execlp(char *, char*);
+void highlight_active_pane(int, int);
 void print_status(pane *);
 char *get_human_filesize(double, char *);
 void take_action(int, pane *);
@@ -71,25 +72,27 @@ void take_action(int, pane *);
 int main(int argc, char *argv[])
 {
     int keypress;
-    init();
+
+    /* Initialization */
+    init_common();
     init_paths();
     init_curses();
 
     do
     {
-        getmaxyx(stdscr, term_max_y, term_max_x); // Get term size
-        term_max_y--; // For status bar
+        getmaxyx(stdscr, termsize_y, termsize_x); // Get term size
+        termsize_y--; // For status bar
         make_windows();
 
-        /* Fill in variable-length arrays of all files in the current directory */
         get_number_of_files(&left_pane);
-        char *dirs_list_l[left_pane.dirs_num];
-        char *files_list_l[left_pane.files_num];
-        get_files_in_array(left_pane.path, dirs_list_l, files_list_l);
-
         get_number_of_files(&right_pane);
+
+        /* Fill in variable-length arrays of all files in the current directory */
+        char *dirs_list_l[left_pane.dirs_num];
         char *dirs_list_r[right_pane.dirs_num];
+        char *files_list_l[left_pane.files_num];
         char *files_list_r[right_pane.files_num];
+        get_files_in_array(left_pane.path, dirs_list_l, files_list_l);
         get_files_in_array(right_pane.path, dirs_list_r, files_list_r);
 
         /* Sorting files in dir alphabetically */
@@ -118,11 +121,7 @@ int main(int argc, char *argv[])
 
         if (pane_flag == 0)
         {
-            /* Highlight the active pane*/
-            wattron(status_bar, COLOR_PAIR(2));
-            mvwhline(status_bar, 0, 0, ACS_HLINE, term_max_x / 2);
-            wattroff(status_bar, COLOR_PAIR(2));
-
+            highlight_active_pane(0, 0);
             print_status(&left_pane);
             refresh_windows();
 
@@ -134,11 +133,7 @@ int main(int argc, char *argv[])
         }
         else if (pane_flag == 1)
         {
-            /* Highlight the active pane*/
-            wattron(status_bar, COLOR_PAIR(2));
-            mvwhline(status_bar, 0, term_max_x / 2, ACS_HLINE, term_max_x / 2);
-            wattroff(status_bar, COLOR_PAIR(2));
-
+            highlight_active_pane(0, termsize_x / 2);
             print_status(&right_pane);
             refresh_windows();
 
@@ -164,12 +159,13 @@ int main(int argc, char *argv[])
     free(right_pane.select_path);
     free(right_pane.parent_dirname);
     free(editor);
+
     endwin();
     clear();
     return EXIT_SUCCESS;
 }
 
-void init()
+void init_common()
 {
     setlocale(LC_ALL, ""); // Unicode, etc
     set_editor();
@@ -312,9 +308,9 @@ int compare_elements(const void *arg1, const void *arg2)
 
 void make_windows()
 {
-    left_pane.win  = create_window(term_max_y, term_max_x / 2 + 1, 0, 0);
-    right_pane.win = create_window(term_max_y, term_max_x / 2 + 1, 0, term_max_x / 2);
-    status_bar = create_window(2, term_max_x, term_max_y - 1, 0);
+    left_pane.win  = create_window(termsize_y, termsize_x / 2 + 1, 0, 0);
+    right_pane.win = create_window(termsize_y, termsize_x / 2 + 1, 0, termsize_x / 2);
+    status_bar = create_window(2, termsize_x, termsize_y - 1, 0);
     keypad (left_pane.win, TRUE);
     keypad (right_pane.win, TRUE);
     sigprocmask(SIG_UNBLOCK, &signal_set, NULL); // Unblock SIGWINCH
@@ -340,13 +336,13 @@ void restore_indexes(char *dirs[], pane *pane)
     {
         if (strcmp(dirs[i], pane->parent_dirname) == 0)
         {
-            if (term_max_y > pane->dirs_num)
+            if (termsize_y > pane->dirs_num)
             {
                 pane->top_index = 0;
                 pane->select = i + 1;
                 break;
             }
-            else if (i < pane->dirs_num - (term_max_y - 2))
+            else if (i < pane->dirs_num - (termsize_y - 2))
             {
                 pane->top_index = i;
                 pane->select = 1;
@@ -354,8 +350,8 @@ void restore_indexes(char *dirs[], pane *pane)
             }
             else
             {
-                pane->top_index = pane->dirs_num - (term_max_y - 2);
-                pane->select = term_max_y - 1 - (pane->dirs_num - i);
+                pane->top_index = pane->dirs_num - (termsize_y - 2);
+                pane->select = termsize_y - 1 - (pane->dirs_num - i);
                 break;
             }
         }
@@ -395,7 +391,7 @@ int print_list(pane *pane, char *list[], int num, int start_index, int line_pos)
     }
 
     /* Erase the string if last filename is too long */
-    for (int i = line_pos; i < term_max_y; i++)
+    for (int i = line_pos; i < termsize_y; i++)
     {
         wmove(pane->win, i, 0);
         wclrtoeol(pane->win);
@@ -436,9 +432,9 @@ void go_down(pane *pane)
         pane->select = num;
 
     /* Scrolling */
-    if (pane->select > term_max_y - 2)
+    if (pane->select > termsize_y - 2)
     {
-        if (num - pane->top_index > term_max_y - 2)
+        if (num - pane->top_index > termsize_y - 2)
             pane->top_index++;
         pane->select--;
         wclear(pane->win);
@@ -560,6 +556,13 @@ pid_t fork_execlp(char *cmd, char *path)
         exit(EXIT_FAILURE);
     }
     return pid;
+}
+
+void highlight_active_pane(int y, int x)
+{
+    wattron(status_bar, COLOR_PAIR(2));
+    mvwhline(status_bar, y, x, ACS_HLINE, termsize_x / 2);
+    wattroff(status_bar, COLOR_PAIR(2));
 }
 
 void print_status(pane *pane)
