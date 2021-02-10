@@ -17,30 +17,31 @@
 #define KEY_TAB 9
 #define KEY_RETURN 10
 
-/* globals */
 typedef struct pane
 {
     WINDOW *win;
     char *path;
     char *select_path;
-    char *parent_dirname; // the name of the parent directory
+    char *parent_dirname; // The name of the parent directory
     int dirs_num;
     int files_num;
-    int top_index; // file index to print the first line of the current window
-    int select; // position of the selected line in the window
-} pane;
+    int top_index; // The file index to print the first line of the current window
+    int select; // The position of the selected line in the window
+}
+pane;
+
+/* Globals */
 pane left_pane  = { .select = 1 };
 pane right_pane = { .select = 1 };
-
 WINDOW *status_bar;
 int term_max_x, term_max_y;
-int refresh_time = 50; // refresh every 5 seconds
-char *editor = NULL; // default editor
-sigset_t signal_set; // represent a signal set to specify what signals are affected
-int back_flag = 0; // changes to 1 after returning to parent directory
+int refresh_time = 50; // Refresh every 5 seconds
+char *editor = NULL; // Default editor
+sigset_t signal_set; // Represent a signal set to specify what signals are affected
+int back_flag = 0; // Changes to 1 after returning to parent directory
 int pane_flag = 0; // 0 - the active panel on the left; 1 - the active panel on the right
 
-/* function prototypes */
+/* Prototypes */
 void init(void);
 void set_editor(void);
 void init_paths(void);
@@ -76,11 +77,11 @@ int main(int argc, char *argv[])
 
     do
     {
-        getmaxyx(stdscr, term_max_y, term_max_x); // get term size
-        term_max_y--; // for status bar
+        getmaxyx(stdscr, term_max_y, term_max_x); // Get term size
+        term_max_y--; // For status bar
         make_windows();
 
-        /* fill in variable-length arrays of all files in the current directory */
+        /* Fill in variable-length arrays of all files in the current directory */
         get_number_of_files(&left_pane);
         char *dirs_list_l[left_pane.dirs_num];
         char *files_list_l[left_pane.files_num];
@@ -91,13 +92,13 @@ int main(int argc, char *argv[])
         char *files_list_r[right_pane.files_num];
         get_files_in_array(right_pane.path, dirs_list_r, files_list_r);
 
-        /* sorting files in dir alphabetically */
+        /* Sorting files in dir alphabetically */
         qsort(dirs_list_l, left_pane.dirs_num, sizeof(char *), compare_elements);
         qsort(files_list_l, left_pane.files_num, sizeof(char *), compare_elements);
         qsort(dirs_list_r, right_pane.dirs_num, sizeof(char *), compare_elements);
         qsort(files_list_r, right_pane.files_num, sizeof(char *), compare_elements);
 
-        /* update 'select' and 'top_index' after go_previous() */
+        /* Update 'select' and 'top_index' after go_previous() */
         if (back_flag == 1)
         {
             if (pane_flag == 0)
@@ -111,13 +112,13 @@ int main(int argc, char *argv[])
             }
         }
 
-        /* print and refresh */
+        /* Print and refresh */
         print_files(&left_pane, dirs_list_l, files_list_l);
         print_files(&right_pane, dirs_list_r, files_list_r);
 
         if (pane_flag == 0)
         {
-            /* highlight the active pane*/
+            /* Highlight the active pane*/
             wattron(status_bar, COLOR_PAIR(2));
             mvwhline(status_bar, 0, 0, ACS_HLINE, term_max_x / 2);
             wattroff(status_bar, COLOR_PAIR(2));
@@ -125,7 +126,7 @@ int main(int argc, char *argv[])
             print_status(&left_pane);
             refresh_windows();
 
-            /* keybindings */
+            /* Keybindings */
             keypress = wgetch(left_pane.win);
             if (keypress == ERR)
                 continue;
@@ -133,7 +134,7 @@ int main(int argc, char *argv[])
         }
         else if (pane_flag == 1)
         {
-            /* highlight the active pane*/
+            /* Highlight the active pane*/
             wattron(status_bar, COLOR_PAIR(2));
             mvwhline(status_bar, 0, term_max_x / 2, ACS_HLINE, term_max_x / 2);
             wattroff(status_bar, COLOR_PAIR(2));
@@ -141,7 +142,7 @@ int main(int argc, char *argv[])
             print_status(&right_pane);
             refresh_windows();
 
-            /* keybindings */
+            /* Keybindings */
             keypress = wgetch(right_pane.win);
             if (keypress == ERR)
                 continue;
@@ -153,7 +154,8 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
 
-    } while (keypress != 'q');
+    }
+    while (keypress != 'q');
 
     free(left_pane.path);
     free(left_pane.select_path);
@@ -169,10 +171,10 @@ int main(int argc, char *argv[])
 
 void init()
 {
-    setlocale(LC_ALL, ""); // unicode, etc
+    setlocale(LC_ALL, ""); // Unicode, etc
     set_editor();
 
-    /* setting a mask to block/unblock SIGWINCH (term window size changed) */
+    /* Setting a mask to block/unblock SIGWINCH (term window size changed) */
     sigemptyset (&signal_set);
     sigaddset(&signal_set, SIGWINCH);
 }
@@ -244,11 +246,11 @@ void init_curses()
 {
     initscr();
     noecho();
-    curs_set(0); // hide the cursor
+    curs_set(0); // Hide the cursor
     halfdelay(refresh_time); 
     start_color();
-    init_pair(1, COLOR_CYAN, 0); // colors : directory 
-    init_pair(2, COLOR_RED, 0);  // colors : active pane
+    init_pair(1, COLOR_CYAN, 0); // Colors : directory 
+    init_pair(2, COLOR_RED, 0);  // Colors : active pane
 }
 
 void get_number_of_files(pane *pane)
@@ -315,7 +317,7 @@ void make_windows()
     status_bar = create_window(2, term_max_x, term_max_y - 1, 0);
     keypad (left_pane.win, TRUE);
     keypad (right_pane.win, TRUE);
-    sigprocmask(SIG_UNBLOCK, &signal_set, NULL); // unblock SIGWINCH
+    sigprocmask(SIG_UNBLOCK, &signal_set, NULL); // Unblock SIGWINCH
 }
 
 void refresh_windows()
@@ -363,12 +365,12 @@ void restore_indexes(char *dirs[], pane *pane)
 
 void print_files(pane *pane, char *dirs_list[], char *files_list[])
 {
-    /* print directories */
+    /* Print directories */
     wattron(pane->win, COLOR_PAIR(1));
     wattron(pane->win, A_BOLD);
     int index = print_list(pane, dirs_list, pane->dirs_num, pane->top_index, 1);
 
-    /* print other types of files */
+    /* Print other types of files */
     wattroff(pane->win, COLOR_PAIR(1));
     wattroff(pane->win, A_BOLD);
     if (pane->top_index < pane->dirs_num)
@@ -383,7 +385,7 @@ int print_list(pane *pane, char *list[], int num, int start_index, int line_pos)
     {
         if (line_pos == pane->select)
         {
-            wattron(pane->win, A_STANDOUT); // highlighting
+            wattron(pane->win, A_STANDOUT); // Highlighting
             free(pane->select_path);
             pane->select_path = get_select_path(i, list, pane);
         }
@@ -392,7 +394,7 @@ int print_list(pane *pane, char *list[], int num, int start_index, int line_pos)
         line_pos++;
     }
 
-    /* erase the string if last filename is too long */
+    /* Erase the string if last filename is too long */
     for (int i = line_pos; i < term_max_y; i++)
     {
         wmove(pane->win, i, 0);
@@ -411,7 +413,7 @@ char *get_select_path(int index, char *list[], pane *pane)
         perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
-    if (pane->path[1] == '\0') // for root dir
+    if (pane->path[1] == '\0') // For root dir
         snprintf(path, alloc_size + 1, "%s%s", pane->path, list[index]);
     else
         snprintf(path, alloc_size + 1, "%s/%s", pane->path, list[index]);
@@ -421,7 +423,7 @@ char *get_select_path(int index, char *list[], pane *pane)
 void print_line(WINDOW *window, int pos, char *str)
 {
     wmove(window, pos, 0);
-    wclrtoeol(window); // pre-erase the string for too long file names
+    wclrtoeol(window); // Pre-erase the string for too long file names
     wmove(window, pos, 2);
     wprintw(window, "%s\n", str);
 }
@@ -433,7 +435,7 @@ void go_down(pane *pane)
     if (pane->select > num)
         pane->select = num;
 
-    /* scrolling */
+    /* Scrolling */
     if (pane->select > term_max_y - 2)
     {
         if (num - pane->top_index > term_max_y - 2)
@@ -448,7 +450,7 @@ void go_up(pane *pane)
 {
     pane->select--; 
 
-    /* scrolling */
+    /* Scrolling */
     if (pane->select < 1)
     {
         if (pane->top_index > 0)
@@ -473,7 +475,7 @@ void go_previous(pane *pane)
     snprintf(pane->parent_dirname, alloc_size + 1, "%s", ptr + 1);
 
     pane->path[strrchr(pane->path, '/') - pane->path] = '\0';
-    if (pane->path[0] == '\0') // for root dir
+    if (pane->path[0] == '\0') // For root dir
     {
         pane->path[0] = '/';
         pane->path[1] = '\0';
@@ -486,7 +488,7 @@ int is_dir(const char *path)
 {
     struct stat st;
     stat(path, &st);
-    return S_ISDIR(st.st_mode); // returns non-zero if the file is a directory
+    return S_ISDIR(st.st_mode); // Returns non-zero if the file is a directory
 }
 
 void open_dir(pane *pane)
@@ -520,7 +522,7 @@ void open_file(pane *pane)
             strstr(filetype, "symlink")   != NULL ||
             strstr(filetype, "octet")     != NULL)
         {
-            /* open a file in default text editor */
+            /* Open a file in default text editor */
             endwin();
             sigprocmask(SIG_BLOCK, &signal_set, NULL); // block SIGWINCH
             pid_t pid = fork_execlp(editor, pane->select_path);
@@ -529,7 +531,7 @@ void open_file(pane *pane)
         }
         else
         {
-            /* open a file in the user's preferred application */
+            /* Open a file in the user's preferred application */
             fork_execlp("xdg-open", pane->select_path);
         }
     }
@@ -552,7 +554,7 @@ pid_t fork_execlp(char *cmd, char *path)
     {
         int fd = open("/dev/null", O_WRONLY);
         dup2(fd, STDERR_FILENO);
-        close(fd); // stderr now write to /dev/null
+        close(fd); // Stderr now write to /dev/null
         execlp(cmd, cmd, path, (char *)0);
         perror("EXEC:\n");
         exit(EXIT_FAILURE);
@@ -573,7 +575,8 @@ void print_status(pane *pane)
         double size = (stat(pane->select_path, &st) == 0) ? st.st_size : 0;
         char *human_size = get_human_filesize(size, buf);
         wmove(status_bar, 1, 0);
-        wprintw(status_bar, "[%02d/%02d]  %s  %s", file_number, num, human_size, pane->select_path);
+        wprintw(status_bar, "[%02d/%02d]  %s  %s", file_number, num,
+                human_size, pane->select_path);
     }
     else
     {
@@ -599,22 +602,26 @@ void take_action(int key, pane *pane)
 {
     switch (key)
     {
-        case KEY_TAB: // press "tab" to change the active panel
+        case KEY_TAB: // Press "tab" to change the active panel
             pane_flag = (pane_flag == 0) ? 1 : 0;
             break;
+
         case 'k':
         case KEY_UP:
             go_up(pane);
             break;
+
         case 'j':
         case KEY_DOWN:
             go_down(pane);
             break;
+
         case 'h':
         case KEY_LEFT:
-            if (pane->path[1] != '\0') // if not root dir
+            if (pane->path[1] != '\0') // If not root dir
                 go_previous(pane);
             break;
+
         case 'l':
         case KEY_RIGHT:
         case KEY_RETURN:    
