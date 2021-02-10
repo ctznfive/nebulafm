@@ -34,6 +34,7 @@ pane right_pane = { .select = 1 };
 
 WINDOW *status_bar;
 int term_max_x, term_max_y;
+int refresh_time = 50; // refresh every 5 seconds
 char *editor = NULL; // default editor
 sigset_t signal_set; // represent a signal set to specify what signals are affected
 int back_flag = 0; // changes to 1 after returning to parent directory
@@ -77,7 +78,7 @@ int main(int argc, char *argv[])
     {
         getmaxyx(stdscr, term_max_y, term_max_x); // get term size
         term_max_y--; // for status bar
-        make_windows(); // make two panes + status bar
+        make_windows();
 
         /* fill in variable-length arrays of all files in the current directory */
         get_number_of_files(&left_pane);
@@ -244,7 +245,7 @@ void init_curses()
     initscr();
     noecho();
     curs_set(0); // hide the cursor
-    halfdelay(20);
+    halfdelay(refresh_time); 
     start_color();
     init_pair(1, COLOR_CYAN, 0); // colors : directory 
     init_pair(2, COLOR_RED, 0);  // colors : active pane
@@ -515,7 +516,7 @@ void open_file(pane *pane)
         if (strstr(filetype, "text/")     != NULL ||
             strstr(filetype, "empty")     != NULL ||
             strstr(filetype, "sharedlib") != NULL ||
-            strstr(filetype, "zip")       != NULL ||
+            strstr(filetype, "/zip")      != NULL ||
             strstr(filetype, "symlink")   != NULL ||
             strstr(filetype, "octet")     != NULL)
         {
