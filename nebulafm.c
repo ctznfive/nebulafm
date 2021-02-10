@@ -7,15 +7,18 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <locale.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <signal.h>
 #include <magic.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #define KEY_TAB 9
 #define KEY_RETURN 10
+#define LEFT 0
+#define RIGHT 1
+#define REFRESH 50 // Refresh every 5 seconds
 
 typedef struct pane
 {
@@ -33,13 +36,12 @@ pane;
 /* Globals */
 pane left_pane  = { .select = 1 };
 pane right_pane = { .select = 1 };
-WINDOW *status_bar;
+int pane_flag = LEFT; // 0 - the active panel on the left; 1 - the active panel on the right
 int termsize_x, termsize_y;
-int refresh_time = 50; // Refresh every 5 seconds
 char *editor = NULL; // Default editor
 sigset_t signal_set; // Represent a signal set to specify what signals are affected
+WINDOW *status_bar;
 int back_flag = 0; // Changes to 1 after returning to parent directory
-int pane_flag = 0; // 0 - the active panel on the left; 1 - the active panel on the right
 
 /* Prototypes */
 void init_common(void);
@@ -104,9 +106,9 @@ int main(int argc, char *argv[])
         /* Update 'select' and 'top_index' after go_previous() */
         if (back_flag == 1)
         {
-            if (pane_flag == 0)
+            if (pane_flag == LEFT)
                 restore_indexes(dirs_list_l, &left_pane);
-            else if (pane_flag == 1)
+            else if (pane_flag == RIGHT)
                 restore_indexes(dirs_list_r, &right_pane);
             else
             {
@@ -119,7 +121,7 @@ int main(int argc, char *argv[])
         print_files(&left_pane, dirs_list_l, files_list_l);
         print_files(&right_pane, dirs_list_r, files_list_r);
 
-        if (pane_flag == 0)
+        if (pane_flag == LEFT)
         {
             highlight_active_pane(0, 0);
             print_status(&left_pane);
@@ -131,7 +133,7 @@ int main(int argc, char *argv[])
                 continue;
             take_action(keypress, &left_pane);
         }
-        else if (pane_flag == 1)
+        else if (pane_flag == RIGHT)
         {
             highlight_active_pane(0, termsize_x / 2);
             print_status(&right_pane);
@@ -243,7 +245,7 @@ void init_curses()
     initscr();
     noecho();
     curs_set(0); // Hide the cursor
-    halfdelay(refresh_time); 
+    halfdelay(REFRESH); 
     start_color();
     init_pair(1, COLOR_CYAN, 0); // Colors : directory 
     init_pair(2, COLOR_RED, 0);  // Colors : active pane
@@ -606,7 +608,7 @@ void take_action(int key, pane *pane)
     switch (key)
     {
         case KEY_TAB: // Press "tab" to change the active panel
-            pane_flag = (pane_flag == 0) ? 1 : 0;
+            pane_flag = (pane_flag == LEFT) ? RIGHT : LEFT;
             break;
 
         case 'k':
