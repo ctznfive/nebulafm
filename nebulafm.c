@@ -74,6 +74,7 @@ void open_file(pane *);
 pid_t fork_exec(char *, char **);
 void highlight_active_pane(int, int);
 void print_status(pane *);
+void print_notification(char *);
 char *get_human_filesize(double, char *);
 void rm_files(pane *);
 void take_action(int, pane *);
@@ -599,6 +600,17 @@ void print_status(pane *pane)
     }
 }
 
+void print_notification(char *str)
+{
+    wattron(status_bar, COLOR_PAIR(2));
+    wattron(status_bar, A_BOLD);
+    print_line(status_bar, 1, str);
+    wattroff(status_bar, COLOR_PAIR(2));
+    wattroff(status_bar, A_BOLD);
+    wrefresh(status_bar);
+    usleep(500000);
+}
+
 char *get_human_filesize(double size, char *buf)
 {
     const char *units[] = {"B", "kB", "MB", "GB", "TB", "PB"};
@@ -652,42 +664,25 @@ void take_action(int key, pane *pane)
             if (access(pane->select_path, R_OK) == 0)
                 (is_dir(pane->select_path) == 0) ? open_file(pane) : open_dir(pane);
             else
-            {
-                wattron(status_bar, COLOR_PAIR(2));
-                wattron(status_bar, A_BOLD);
-                print_line(status_bar, 1, "Permission denied");
-                wattroff(status_bar, COLOR_PAIR(2));
-                wattroff(status_bar, A_BOLD);
-                wrefresh(status_bar);
-                sleep(1);
-            }
+                print_notification("Permission denied");
             break;
 
         case KEY_CUT:
             wattron(status_bar, COLOR_PAIR(2));
-            wattron(status_bar, A_BOLD);
             print_line(status_bar, 1, "Delete?  Press ");
             wprintw(status_bar, "%c  ", KEY_DELETE);
-            wrefresh(status_bar);
+            wattroff(status_bar, COLOR_PAIR(2));
             confirm_key = wgetch(status_bar);
             if (confirm_key == KEY_DELETE)
             {
                 if (access(pane->select_path, W_OK) == 0)
                 {
                     rm_files(pane);
-                    print_line(status_bar, 1, "Deleting!");
-                    wrefresh(status_bar);
-                    sleep(1);
+                    print_notification("Deleting!");
                 }
                 else
-                {
-                    print_line(status_bar, 1, "Permission denied");
-                    wrefresh(status_bar);
-                    sleep(1);
-                }
+                    print_notification("Permission denied");
             }
-            wattroff(status_bar, COLOR_PAIR(2));
-            wattroff(status_bar, A_BOLD);
             break;
     }
 }
