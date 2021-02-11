@@ -16,6 +16,12 @@
 
 #define KEY_TAB 9
 #define KEY_RETURN 10
+#define KEY_BACKWARD 'h'
+#define KEY_DOWNWARD 'j'
+#define KEY_UPWARD 'k'
+#define KEY_FORWARD 'l'
+#define KEY_CUT 'd'
+#define KEY_DELETE 'D'
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
@@ -65,10 +71,11 @@ void go_previous(pane *);
 int is_dir(const char *);
 void open_dir(pane *);
 void open_file(pane *);
-pid_t fork_execlp(char *, char*);
+pid_t fork_exec(char *, char **);
 void highlight_active_pane(int, int);
 void print_status(pane *);
 char *get_human_filesize(double, char *);
+void rm_files(pane *);
 void take_action(int, pane *);
 
 int main(int argc, char *argv[])
@@ -523,14 +530,16 @@ void open_file(pane *pane)
             /* Open a file in default text editor */
             endwin();
             sigprocmask(SIG_BLOCK, &signal_set, NULL); // block SIGWINCH
-            pid_t pid = fork_execlp(editor, pane->select_path);
+            char *argv[] = { "editor", pane->select_path, (char *)0 };
+            pid_t pid = fork_exec(argv[0], argv);
             int status;
             waitpid(pid, &status, 0);
         }
         else
         {
             /* Open a file in the user's preferred application */
-            fork_execlp("xdg-open", pane->select_path);
+            char *argv[] = { "xdg-open", pane->select_path, (char *)0 };
+            fork_exec(argv[0], argv);
         }
     }
     else
@@ -538,7 +547,7 @@ void open_file(pane *pane)
     magic_close(magic);
 }
 
-pid_t fork_execlp(char *cmd, char *path)
+pid_t fork_exec(char *cmd, char **argv)
 {
     pid_t pid;
     pid = fork();
@@ -553,7 +562,7 @@ pid_t fork_execlp(char *cmd, char *path)
         int fd = open("/dev/null", O_WRONLY);
         dup2(fd, STDERR_FILENO);
         close(fd); // Stderr now write to /dev/null
-        execlp(cmd, cmd, path, (char *)0);
+        execvp(cmd, argv);
         perror("EXEC:\n");
         exit(EXIT_FAILURE);
     }
@@ -603,34 +612,71 @@ char *get_human_filesize(double size, char *buf)
     return buf;
 }
 
+void rm_files(pane *pane)
+{
+    char *argv[] = { "rm", "-f", "-r", pane->select_path, (char *)0 };
+    pid_t pid = fork_exec(argv[0], argv);
+    int status;
+    waitpid(pid, &status, 0);
+}
+
 void take_action(int key, pane *pane)
 {
+    int confirm_key;
+
     switch (key)
     {
         case KEY_TAB: // Press "tab" to change the active panel
             pane_flag = (pane_flag == LEFT) ? RIGHT : LEFT;
             break;
 
-        case 'k':
+        case KEY_UPWARD:
         case KEY_UP:
             go_up(pane);
             break;
 
-        case 'j':
+        case KEY_DOWNWARD:
         case KEY_DOWN:
             go_down(pane);
             break;
 
-        case 'h':
+        case KEY_BACKWARD:
         case KEY_LEFT:
             if (pane->path[1] != '\0') // If not root dir
                 go_previous(pane);
             break;
 
-        case 'l':
+        case KEY_FORWARD:
         case KEY_RIGHT:
         case KEY_RETURN:    
             (is_dir(pane->select_path) == 0) ? open_file(pane) : open_dir(pane);
+            break;
+
+        case KEY_CUT:
+            wattron(status_bar, COLOR_PAIR(2));
+            wattron(status_bar, A_BOLD);
+            print_line(status_bar, 1, "Delete?  Press ");
+            wprintw(status_bar, "%c  ", KEY_DELETE);
+            wrefresh(status_bar);
+            confirm_key = wgetch(status_bar);
+            if (confirm_key == KEY_DELETE)
+            {
+                if (access(pane->select_path, W_OK) == 0)
+                {
+                    rm_files(pane);
+                    print_line(status_bar, 1, "Deleting!");
+                    wrefresh(status_bar);
+                    sleep(1);
+                }
+                else
+                {
+                    print_line(status_bar, 1, "Permission denied");
+                    wrefresh(status_bar);
+                    sleep(1);
+                }
+            }
+            wattroff(status_bar, COLOR_PAIR(2));
+            wattroff(status_bar, A_BOLD);
             break;
     }
 }
