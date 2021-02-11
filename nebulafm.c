@@ -649,7 +649,18 @@ void take_action(int key, pane *pane)
         case KEY_FORWARD:
         case KEY_RIGHT:
         case KEY_RETURN:    
-            (is_dir(pane->select_path) == 0) ? open_file(pane) : open_dir(pane);
+            if (access(pane->select_path, R_OK) == 0)
+                (is_dir(pane->select_path) == 0) ? open_file(pane) : open_dir(pane);
+            else
+            {
+                wattron(status_bar, COLOR_PAIR(2));
+                wattron(status_bar, A_BOLD);
+                print_line(status_bar, 1, "Permission denied");
+                wattroff(status_bar, COLOR_PAIR(2));
+                wattroff(status_bar, A_BOLD);
+                wrefresh(status_bar);
+                sleep(1);
+            }
             break;
 
         case KEY_CUT:
