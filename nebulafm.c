@@ -22,9 +22,11 @@
 #define KEY_FORWARD 'l'
 #define KEY_CUT 'd'
 #define KEY_DELETE 'D'
+#define KEY_HIDE 'z'
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
+#define HIDDENVIEW 1 // Display or hide hidden files
 
 typedef struct pane
 {
@@ -48,6 +50,7 @@ char *editor = NULL; // Default editor
 sigset_t signal_set; // Represent a signal set to specify what signals are affected
 WINDOW *status_bar;
 int back_flag = 0; // Changes to 1 after returning to parent directory
+int hide_flag = HIDDENVIEW;
 
 /* Prototypes */
 void init_common(void);
@@ -272,6 +275,8 @@ void get_number_of_files(pane *pane)
         {
             if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0)
                 continue;
+            if (hide_flag == 0 && pDirent->d_name[0] == '.')
+                continue;
             if (pDirent->d_type == DT_DIR)
                 pane->dirs_num += 1;
             else
@@ -293,6 +298,8 @@ void get_files_in_array(char *directory, char *dirs[], char *files[])
         while ((pDirent = readdir(pDir)) != NULL)
         {
             if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0)
+                continue;
+            if (hide_flag == 0 && pDirent->d_name[0] == '.')
                 continue;
             if (pDirent->d_type == DT_DIR)
             {
@@ -683,6 +690,14 @@ void take_action(int key, pane *pane)
                 else
                     print_notification("Permission denied");
             }
+            break;
+
+        case KEY_HIDE:
+            hide_flag = (hide_flag == 1) ? 0 : 1;
+            left_pane.top_index = 0;
+            right_pane.top_index = 0;
+            left_pane.select = 1;
+            right_pane.select = 1;
             break;
     }
 }
