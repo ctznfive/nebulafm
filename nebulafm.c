@@ -49,6 +49,7 @@ int pane_flag = LEFT; // 0 - the active panel on the left; 1 - the active panel 
 int termsize_x, termsize_y;
 struct passwd *user_data;
 char *conf_path = NULL; // The path to the configuration directory
+char *clipboard_path = NULL;
 char *editor = NULL; // Default editor
 sigset_t signal_set; // Represent a signal set to specify what signals are affected
 WINDOW *status_bar;
@@ -175,6 +176,8 @@ int main(int argc, char *argv[])
     free(right_pane.select_path);
     free(right_pane.parent_dirname);
     free(editor);
+    free(conf_path);
+    free(clipboard_path);
 
     endwin();
     clear();
@@ -257,7 +260,7 @@ void init_paths()
     }
     snprintf(right_pane.parent_dirname, alloc_size + 1, "%s", ptr + 1);
 
-    /* Get the path to the configuration directory */ 
+    /* Set the path for the configuration directory */ 
     char *conf_dir = getenv("XDG_CONFIG_HOME");
     if (conf_dir != NULL)
     {
@@ -281,6 +284,16 @@ void init_paths()
         }
         snprintf(conf_path, alloc_size + 1, "%s/.config/nebulafm", user_data->pw_dir);
     }
+
+    /* Set the path for the clipboard file */ 
+    alloc_size = snprintf(NULL, 0, "%s/clipboard", conf_path);
+    clipboard_path = malloc(alloc_size + 1);
+    if (clipboard_path == NULL)
+    {
+        perror("clipboard initialization error\n");
+        exit(EXIT_FAILURE);
+    }
+    snprintf(clipboard_path, alloc_size + 1, "%s/clipboard", conf_path);
 }
 
 void make_conf_dir(char *path)
