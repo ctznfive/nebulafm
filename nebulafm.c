@@ -10,6 +10,7 @@
 #include <signal.h>
 #include <magic.h>
 #include <fcntl.h>
+#include <pwd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -46,6 +47,7 @@ pane left_pane  = { .select = 1 };
 pane right_pane = { .select = 1 };
 int pane_flag = LEFT; // 0 - the active panel on the left; 1 - the active panel on the right
 int termsize_x, termsize_y;
+struct passwd *home;
 char *editor = NULL; // Default editor
 sigset_t signal_set; // Represent a signal set to specify what signals are affected
 WINDOW *status_bar;
@@ -180,6 +182,8 @@ int main(int argc, char *argv[])
 
 void init_common()
 {
+    uid_t pw_uid = getuid();
+    home = getpwuid(pw_uid);
     setlocale(LC_ALL, ""); // Unicode, etc
     set_editor();
 
