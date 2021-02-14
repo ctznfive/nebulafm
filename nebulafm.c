@@ -84,6 +84,7 @@ void highlight_active_pane(int, int);
 void print_status(pane *);
 void print_notification(char *);
 char *get_human_filesize(double, char *);
+void append_clipboard(char *);
 void rm_files(pane *);
 void take_action(int, pane *);
 
@@ -681,6 +682,18 @@ char *get_human_filesize(double size, char *buf)
     }
     sprintf(buf, "%.*f %s", i, size, units[i]);
     return buf;
+}
+
+void append_clipboard(char *path)
+{
+    FILE *file = fopen(clipboard_path, "a+");
+    if (file == NULL)
+    {
+        perror("clipboard access error\n");
+        exit(EXIT_FAILURE);
+    }
+    fprintf(file, "%s\n", path);
+    fclose(file);
 }
 
 void rm_files(pane *pane)
