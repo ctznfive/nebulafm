@@ -24,6 +24,7 @@
 #define KEY_CUT 'd'
 #define KEY_DELETE 'D'
 #define KEY_HIDE 'z'
+#define KEY_MULT ' '
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
@@ -84,7 +85,9 @@ void highlight_active_pane(int, int);
 void print_status(pane *);
 void print_notification(char *);
 char *get_human_filesize(double, char *);
+int exist_clipboard(char *);
 void append_clipboard(char *);
+void remove_clipboard(char *);
 void rm_files(pane *);
 void take_action(int, pane *);
 
@@ -169,6 +172,9 @@ int main(int argc, char *argv[])
 
     }
     while (keypress != 'q');
+
+    /* Emptying the clipboard */
+    remove(clipboard_path);
 
     free(left_pane.path);
     free(left_pane.select_path);
@@ -684,6 +690,11 @@ char *get_human_filesize(double size, char *buf)
     return buf;
 }
 
+int exist_clipboard(char *path)
+{
+    return 0;
+}
+
 void append_clipboard(char *path)
 {
     FILE *file = fopen(clipboard_path, "a+");
@@ -694,6 +705,11 @@ void append_clipboard(char *path)
     }
     fprintf(file, "%s\n", path);
     fclose(file);
+}
+
+void remove_clipboard(char *path)
+{
+
 }
 
 void rm_files(pane *pane)
@@ -763,6 +779,14 @@ void take_action(int key, pane *pane)
             right_pane.top_index = 0;
             left_pane.select = 1;
             right_pane.select = 1;
+            break;
+
+        case KEY_MULT:
+            if (exist_clipboard(pane->select_path) == 0)
+                append_clipboard(pane->select_path);
+            else
+                remove_clipboard(pane->select_path);
+            go_down(pane);
             break;
     }
 }
