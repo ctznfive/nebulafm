@@ -47,7 +47,8 @@ pane left_pane  = { .select = 1 };
 pane right_pane = { .select = 1 };
 int pane_flag = LEFT; // 0 - the active panel on the left; 1 - the active panel on the right
 int termsize_x, termsize_y;
-struct passwd *home;
+struct passwd *user_data;
+char *conf_path = NULL; // The path to the configuration directory
 char *editor = NULL; // Default editor
 sigset_t signal_set; // Represent a signal set to specify what signals are affected
 WINDOW *status_bar;
@@ -58,6 +59,7 @@ int hide_flag = HIDDENVIEW;
 void init_common(void);
 void set_editor(void);
 void init_paths(void);
+void make_conf_dir(char *);
 void init_curses(void);
 void get_number_of_files(pane *);
 void get_files_in_array(char *, char *[], char *[]);
@@ -90,7 +92,6 @@ int main(int argc, char *argv[])
 
     /* Initialization */
     init_common();
-    init_paths();
     init_curses();
 
     do
@@ -183,9 +184,11 @@ int main(int argc, char *argv[])
 void init_common()
 {
     uid_t pw_uid = getuid();
-    home = getpwuid(pw_uid);
+    user_data = getpwuid(pw_uid);
     setlocale(LC_ALL, ""); // Unicode, etc
     set_editor();
+    init_paths();
+    make_conf_dir(conf_path);
 
     /* Setting a mask to block/unblock SIGWINCH (term window size changed) */
     sigemptyset (&signal_set);
@@ -253,6 +256,38 @@ void init_paths()
         exit(EXIT_FAILURE);
     }
     snprintf(right_pane.parent_dirname, alloc_size + 1, "%s", ptr + 1);
+
+    /* Get the path to the configuration directory */ 
+    char *conf_dir = getenv("XDG_CONFIG_HOME");
+    if (conf_dir != NULL)
+    {
+        alloc_size = snprintf(NULL, 0, "%s/nebulafm", conf_dir);
+        conf_path = malloc(alloc_size + 1);
+        if (conf_path == NULL)
+        {
+            perror("config directory initialization error\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(conf_path, alloc_size + 1, "%s/nebulafm", conf_dir);
+    }
+    else
+    {
+        alloc_size = snprintf(NULL, 0, "%s/.config/nebulafm", user_data->pw_dir);
+        conf_path = malloc(alloc_size + 1);
+        if (conf_path == NULL)
+        {
+            perror("config directory initialization error\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(conf_path, alloc_size + 1, "%s/.config/nebulafm", user_data->pw_dir);
+    }
+}
+
+void make_conf_dir(char *path)
+{
+    struct stat st = { 0 };
+    if (stat(path, &st) == -1)
+        mkdir(path, 0755);
 }
 
 void init_curses()
