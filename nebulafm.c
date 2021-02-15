@@ -725,7 +725,41 @@ void append_clipboard(char *path)
 
 void remove_clipboard(char *path)
 {
+    FILE *file = fopen(clipboard_path, "r");
+    if (file != NULL)
+    {
+        char *tmp_clipboard_path = NULL;
+        int alloc_size = snprintf(NULL, 0, "%s/.clipboard", conf_path);
+        tmp_clipboard_path = malloc(alloc_size + 1);
+        if (tmp_clipboard_path == NULL)
+        {
+            perror("temp clipboard initialization error\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(tmp_clipboard_path, alloc_size + 1, "%s/.clipboard", conf_path);
 
+        char buf[PATH_MAX];
+        FILE *tmp_file = fopen(tmp_clipboard_path, "a+");
+        if (tmp_file == NULL)
+        {
+            perror("temp clipboard access error\n");
+            exit(EXIT_FAILURE);
+        }
+        while (fgets(buf, PATH_MAX, file))
+        {
+            buf[strcspn(buf, "\r\n")] = 0;
+            if (strcmp(path, buf) != 0)
+                fprintf(tmp_file, "%s\n", buf);
+        }
+
+        fclose(tmp_file);
+        fclose(file);
+        char *argv[] = { "mv", tmp_clipboard_path, clipboard_path, (char *)0 };
+        pid_t pid = fork_exec(argv[0], argv);
+        int status;
+        waitpid(pid, &status, 0);
+        free(tmp_clipboard_path);
+    }
 }
 
 void rm_files(pane *pane)
