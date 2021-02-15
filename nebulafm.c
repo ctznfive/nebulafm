@@ -212,7 +212,7 @@ void set_editor()
     if (getenv("EDITOR") != NULL)
     {
         int alloc_size = snprintf(NULL, 0, "%s", getenv("EDITOR"));    
-        editor = (char*) malloc(alloc_size + 1);
+        editor = malloc(alloc_size + 1);
         if (editor == NULL)
         {
             perror("editor initialization error\n");
@@ -222,7 +222,7 @@ void set_editor()
     }
     else
     {
-        editor = (char*) malloc(4);
+        editor = malloc(4);
         if (editor == NULL)
         {
             perror("editor initialization error\n");
@@ -237,14 +237,14 @@ void init_paths()
     char cwd[PATH_MAX];
     getcwd(cwd, sizeof(cwd));
     int alloc_size = snprintf(NULL, 0, "%s", cwd);
-    left_pane.path = (char*) malloc(alloc_size + 1);
+    left_pane.path = malloc(alloc_size + 1);
     if (left_pane.path == NULL)
     {
         perror("directory initialization error\n");
         exit(EXIT_FAILURE);
     }
     snprintf(left_pane.path, alloc_size + 1, "%s", cwd);
-    right_pane.path = (char*) malloc(alloc_size + 1);
+    right_pane.path = malloc(alloc_size + 1);
     if (right_pane.path == NULL)
     {
         perror("directory initialization error\n");
@@ -254,14 +254,14 @@ void init_paths()
 
     char *ptr = strrchr(cwd, '/');
     alloc_size = snprintf(NULL, 0, "%s", ptr);
-    left_pane.parent_dirname = (char*) malloc(alloc_size + 1);
+    left_pane.parent_dirname = malloc(alloc_size + 1);
     if (left_pane.parent_dirname == NULL)
     {
         perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
     snprintf(left_pane.parent_dirname, alloc_size + 1, "%s", ptr + 1);
-    right_pane.parent_dirname = (char*) malloc(alloc_size + 1);
+    right_pane.parent_dirname = malloc(alloc_size + 1);
     if (right_pane.parent_dirname == NULL)
     {
         perror("memory allocation error\n");
@@ -480,7 +480,7 @@ int print_list(pane *pane, char *list[], int num, int start_index, int line_pos)
 char *get_select_path(int index, char *list[], pane *pane)
 {
     int alloc_size = snprintf(NULL, 0, "%s/%s", pane->path, list[index]);
-    char *path = (char*) malloc(alloc_size + 1);
+    char *path = malloc(alloc_size + 1);
     if (path == NULL)
     {
         endwin();
@@ -539,7 +539,7 @@ void go_previous(pane *pane)
     free(pane->parent_dirname);
     char *ptr = strrchr(pane->path, '/');
     int alloc_size = snprintf(NULL, 0, "%s", ptr);
-    pane->parent_dirname = (char*) malloc(alloc_size + 1);
+    pane->parent_dirname = malloc(alloc_size + 1);
     if (pane->parent_dirname == NULL)
     {
         endwin();
@@ -569,7 +569,7 @@ void open_dir(pane *pane)
 {
     free(pane->path);
     int alloc_size = snprintf(NULL, 0, "%s", pane->select_path);
-    pane->path = (char*) malloc(alloc_size + 1);
+    pane->path = malloc(alloc_size + 1);
     if (pane->path == NULL)
     {
         endwin();
