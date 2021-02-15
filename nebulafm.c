@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <locale.h>
+#include <limits.h>
+#include <linux/limits.h>
 #include <signal.h>
 #include <magic.h>
 #include <fcntl.h>
@@ -692,7 +694,21 @@ char *get_human_filesize(double size, char *buf)
 
 int exist_clipboard(char *path)
 {
-    return 0;
+    FILE *file = fopen(clipboard_path, "r");
+    if (file != NULL)
+    {
+        char buf[PATH_MAX];
+        while(fgets(buf, PATH_MAX, file))
+        {
+            buf[strcspn(buf, "\r\n")] = 0;
+            if (strcmp(path, buf) == 0)
+            {
+                fclose(file);
+                return 0;
+            }
+        }
+    }
+    return -1;
 }
 
 void append_clipboard(char *path)
@@ -782,7 +798,7 @@ void take_action(int key, pane *pane)
             break;
 
         case KEY_MULT:
-            if (exist_clipboard(pane->select_path) == 0)
+            if (exist_clipboard(pane->select_path) != 0)
                 append_clipboard(pane->select_path);
             else
                 remove_clipboard(pane->select_path);
