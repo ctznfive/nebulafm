@@ -1,4 +1,6 @@
-// % gcc nebulafm.c -o nebulafm -Wall -ggdb -lmagic $(ncursesw5-config --cflags --libs)
+// % gcc nebulafm.c -o nebulafm -Wall -Wextra -ggdb -lmagic $(ncursesw5-config --cflags --libs)
+
+#define _BSD_SOURCE
 
 #include <stdio.h>
 #include <curses.h>
@@ -93,7 +95,7 @@ void remove_clipboard(char *);
 void rm_files(pane *);
 void take_action(int, pane *);
 
-int main(int argc, char *argv[])
+int main()
 {
     int keypress;
 
