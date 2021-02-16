@@ -75,7 +75,7 @@ void refresh_windows(void);
 WINDOW *create_window(int, int, int, int);
 void restore_indexes(char *[], pane *);
 void print_files(pane *, char *[], char *[]);
-int print_list(pane *, char *[], int, int, int);
+int print_list(pane *, char *[], int, int, int, int);
 char *get_select_path(int, char *[], pane *);
 void print_line(WINDOW *, int, char *);
 void go_down(pane *);
@@ -442,20 +442,18 @@ void restore_indexes(char *dirs[], pane *pane)
 void print_files(pane *pane, char *dirs_list[], char *files_list[])
 {
     /* Print directories */
-    wattron(pane->win, COLOR_PAIR(1));
     wattron(pane->win, A_BOLD);
-    int index = print_list(pane, dirs_list, pane->dirs_num, pane->top_index, 1);
+    int index = print_list(pane, dirs_list, pane->dirs_num, pane->top_index, 1, 1);
+    wattroff(pane->win, A_BOLD);
 
     /* Print other types of files */
-    wattroff(pane->win, COLOR_PAIR(1));
-    wattroff(pane->win, A_BOLD);
     if (pane->top_index < pane->dirs_num)
-        print_list(pane, files_list, pane->files_num, 0, index);
+        print_list(pane, files_list, pane->files_num, 0, index, 0);
     else
-        print_list(pane, files_list, pane->files_num, pane->top_index - pane->dirs_num, 1);
+        print_list(pane, files_list, pane->files_num, pane->top_index - pane->dirs_num, 1, 0);
 }
 
-int print_list(pane *pane, char *list[], int num, int start_index, int line_pos)
+int print_list(pane *pane, char *list[], int num, int start_index, int line_pos, int color)
 {
     for (int i = start_index; i < num; i++)
     {
@@ -465,8 +463,38 @@ int print_list(pane *pane, char *list[], int num, int start_index, int line_pos)
             free(pane->select_path);
             pane->select_path = get_select_path(i, list, pane);
         }
-        print_line(pane->win, line_pos, list[i]);
+
+        char *print_path = NULL;
+        int alloc_size = snprintf(NULL, 0, "%s/%s", pane->path, list[i]);
+        print_path = malloc(alloc_size + 1);
+        if (print_path == NULL)
+        {
+            perror("memory allocation error\n");
+            exit(EXIT_FAILURE);
+        }
+        if (pane->path[1] == '\0') // For root dir
+            snprintf(print_path, alloc_size + 1, "%s%s", pane->path, list[i]);
+        else
+            snprintf(print_path, alloc_size + 1, "%s/%s", pane->path, list[i]);
+
+        /* selecting files on the clipboard */
+        if (exist_clipboard(print_path) == 0)
+        {
+            wattron(pane->win, COLOR_PAIR(2));
+            print_line(pane->win, line_pos, list[i]);
+            wmove(pane->win, line_pos, 0);
+            wprintw(pane->win, ">");
+            wattroff(pane->win, COLOR_PAIR(2));
+        }
+        else
+        {
+            wattron(pane->win, COLOR_PAIR(color));
+            print_line(pane->win, line_pos, list[i]);
+            wattroff(pane->win, COLOR_PAIR(color));
+        }
+
         wattroff(pane->win, A_STANDOUT); 
+        free(print_path);
         line_pos++;
     }
 
@@ -709,6 +737,7 @@ int exist_clipboard(char *path)
                 return 0;
             }
         }
+        fclose(file);
     }
     return -1;
 }
