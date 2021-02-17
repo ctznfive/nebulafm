@@ -25,10 +25,11 @@
 #define KEY_DOWNWARD 'j'
 #define KEY_UPWARD 'k'
 #define KEY_FORWARD 'l'
-#define KEY_CUT 'd'
-#define KEY_DELETE 'D'
 #define KEY_HIDE 'z'
 #define KEY_MULT ' '
+#define KEY_DEL 'd'
+#define KEY_DEL_CONF 'D'
+#define KEY_CPY 'y'
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
@@ -95,6 +96,8 @@ void append_clipboard(char *);
 void remove_clipboard(char *);
 void remove_files(pane *);
 int rm_file(char *);
+void yank_files(pane *);
+int cp_file(char *, char *);
 void take_action(int, pane *);
 
 int main()
@@ -815,7 +818,7 @@ void remove_files(pane *pane)
         if (del_num == clipboard_num)
             print_notification("All files have been deleted.");
         else
-            print_notification("Some files are not deleted. Permission denied!");
+            print_notification("Some files aren't deleted. Permission denied!");
         fclose(file);
         remove(clipboard_path);
         clipboard_num = 0;
@@ -838,6 +841,66 @@ int rm_file(char *path)
     if (access(path, W_OK) == 0)
     {
         char *argv[] = { "rm", "-f", "-r", path, (char *)0 };
+        pid_t pid = fork_exec(argv[0], argv);
+        int status;
+        waitpid(pid, &status, 0);
+        return 0;
+    }
+    return -1;
+}
+
+void yank_files(pane *pane)
+{
+    if (clipboard_num != 0)
+    {
+        FILE *file = fopen(clipboard_path, "r");
+        char buf[PATH_MAX];
+        int cp_num = 0;
+        while(fgets(buf, PATH_MAX, file))
+        {
+            buf[strcspn(buf, "\r\n")] = 0;
+            if (cp_file(buf, pane->path) == 0)
+                cp_num++;
+        }
+        if (cp_num == clipboard_num)
+            print_notification("All files have been copied.");
+        else
+            print_notification("Some files aren't copied. Permission denied!");
+        fclose(file);
+        remove(clipboard_path);
+        clipboard_num = 0;
+        pane->select = 1;
+    }
+    else
+    {
+        /* Make a copy of the selected file in the current directory. */
+        if (access(pane->path, W_OK) == 0)
+        {
+            int alloc_size = snprintf(NULL, 0, "%s~", pane->select_path);
+            char *cpy_path = malloc(alloc_size + 1);
+            if (cpy_path == NULL)
+            {
+                perror("memory allocation error\n");
+                exit(EXIT_FAILURE);
+            }
+            snprintf(cpy_path, alloc_size + 1, "%s~", pane->select_path);
+            char *argv[] = { "cp", "-b", "-r", pane->select_path, cpy_path, (char *)0 };
+            pid_t pid = fork_exec(argv[0], argv);
+            int status;
+            waitpid(pid, &status, 0);
+            print_notification("A copy of the file was successfully created.");
+            free(cpy_path);
+        }
+        else
+            print_notification("Permission denied!");
+    }
+}
+
+int cp_file(char *path, char *dir)
+{
+    if (access(dir, W_OK) == 0)
+    {
+        char *argv[] = { "cp", "-b", "-r", path, dir, (char *)0 };
         pid_t pid = fork_exec(argv[0], argv);
         int status;
         waitpid(pid, &status, 0);
@@ -881,16 +944,6 @@ void take_action(int key, pane *pane)
                 print_notification("Permission denied");
             break;
 
-        case KEY_CUT:
-            wattron(status_bar, COLOR_PAIR(2));
-            print_line(status_bar, 1, "Delete?  Press ");
-            wprintw(status_bar, "%c  ", KEY_DELETE);
-            wattroff(status_bar, COLOR_PAIR(2));
-            confirm_key = wgetch(status_bar);
-            if (confirm_key == KEY_DELETE)
-                remove_files(pane);
-            break;
-
         case KEY_HIDE:
             hide_flag = (hide_flag == 1) ? 0 : 1;
             left_pane.top_index = 0;
@@ -905,6 +958,26 @@ void take_action(int key, pane *pane)
             else
                 remove_clipboard(pane->select_path);
             go_down(pane);
+            break;
+
+        case KEY_DEL:
+            wattron(status_bar, COLOR_PAIR(2));
+            print_line(status_bar, 1, "Delete?  Press ");
+            wprintw(status_bar, "%c  ", KEY_DEL_CONF);
+            wattroff(status_bar, COLOR_PAIR(2));
+            confirm_key = wgetch(status_bar);
+            if (confirm_key == KEY_DEL_CONF)
+                remove_files(pane);
+            break;
+
+        case KEY_CPY:
+            wattron(status_bar, COLOR_PAIR(2));
+            print_line(status_bar, 1, "Yank?  Press ");
+            wprintw(status_bar, "%c  ", KEY_CPY);
+            wattroff(status_bar, COLOR_PAIR(2));
+            confirm_key = wgetch(status_bar);
+            if (confirm_key == KEY_CPY)
+                yank_files(pane);
             break;
     }
 }
