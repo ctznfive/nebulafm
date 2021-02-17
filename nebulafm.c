@@ -30,6 +30,7 @@
 #define KEY_DEL 'd'
 #define KEY_DEL_CONF 'D'
 #define KEY_CPY 'y'
+#define KEY_MV 'v'
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
@@ -98,6 +99,8 @@ void remove_files(pane *);
 int rm_file(char *);
 void yank_files(pane *);
 int cp_file(char *, char *);
+void move_files(pane *);
+int mv_file(char *, char *);
 void take_action(int, pane *);
 
 int main()
@@ -888,7 +891,7 @@ void yank_files(pane *pane)
             pid_t pid = fork_exec(argv[0], argv);
             int status;
             waitpid(pid, &status, 0);
-            print_notification("A copy of the file was successfully created.");
+            print_notification("A copy of the file/directory was successfully created.");
             free(cpy_path);
         }
         else
@@ -901,6 +904,45 @@ int cp_file(char *path, char *dir)
     if (access(dir, W_OK) == 0)
     {
         char *argv[] = { "cp", "-b", "-r", path, dir, (char *)0 };
+        pid_t pid = fork_exec(argv[0], argv);
+        int status;
+        waitpid(pid, &status, 0);
+        return 0;
+    }
+    return -1;
+}
+
+void move_files(pane *pane)
+{
+    if (clipboard_num != 0)
+    {
+        FILE *file = fopen(clipboard_path, "r");
+        char buf[PATH_MAX];
+        int mv_num = 0;
+        while(fgets(buf, PATH_MAX, file))
+        {
+            buf[strcspn(buf, "\r\n")] = 0;
+            if (mv_file(buf, pane->path) == 0)
+                mv_num++;
+        }
+        if (mv_num == clipboard_num)
+            print_notification("All files have been moved.");
+        else
+            print_notification("Some files aren't moved. Permission denied!");
+        fclose(file);
+        remove(clipboard_path);
+        clipboard_num = 0;
+        pane->select = 1;
+    }
+    else
+        print_notification("The clipboard is empty. Please select the files.");
+}
+
+int mv_file(char *path, char *dir)
+{
+    if (access(dir, W_OK) == 0 && access(path, W_OK) == 0)
+    {
+        char *argv[] = { "mv", "-b", path, dir, (char *)0 };
         pid_t pid = fork_exec(argv[0], argv);
         int status;
         waitpid(pid, &status, 0);
@@ -978,6 +1020,16 @@ void take_action(int key, pane *pane)
             confirm_key = wgetch(status_bar);
             if (confirm_key == KEY_CPY)
                 yank_files(pane);
+            break;
+
+        case KEY_MV:
+            wattron(status_bar, COLOR_PAIR(2));
+            print_line(status_bar, 1, "Move?  Press ");
+            wprintw(status_bar, "%c  ", KEY_MV);
+            wattroff(status_bar, COLOR_PAIR(2));
+            confirm_key = wgetch(status_bar);
+            if (confirm_key == KEY_MV)
+                move_files(pane);
             break;
     }
 }
