@@ -55,6 +55,7 @@ int termsize_x, termsize_y;
 struct passwd *user_data;
 char *conf_path = NULL; // The path to the configuration directory
 char *clipboard_path = NULL;
+int clipboard_num = 0; // The number of files on the clipboard
 char *editor = NULL; // Default editor
 sigset_t signal_set; // Represent a signal set to specify what signals are affected
 WINDOW *status_bar;
@@ -92,7 +93,8 @@ char *get_human_filesize(double, char *);
 int exist_clipboard(char *);
 void append_clipboard(char *);
 void remove_clipboard(char *);
-void rm_files(pane *);
+void remove_files(pane *);
+int rm_file(char *);
 void take_action(int, pane *);
 
 int main()
@@ -322,7 +324,7 @@ void init_curses()
     halfdelay(REFRESH); 
     start_color();
     init_pair(1, COLOR_CYAN, 0); // Colors : directory 
-    init_pair(2, COLOR_RED, 0);  // Colors : active pane
+    init_pair(2, COLOR_RED, 0);  // Colors : active pane; files from clipboard
 }
 
 void get_number_of_files(pane *pane)
@@ -688,13 +690,14 @@ void print_status(pane *pane)
         double size = (stat(pane->select_path, &st) == 0) ? st.st_size : 0;
         char *human_size = get_human_filesize(size, buf);
         wmove(status_bar, 1, 0);
-        wprintw(status_bar, "[%02d/%02d]  %s  %s", file_number, num,
+        wprintw(status_bar, "[%02d/%02d]  [*%d]  %s  %s", file_number, num, clipboard_num,
                 human_size, pane->select_path);
     }
     else
     {
         wmove(status_bar, 1, 0);
-        wprintw(status_bar, "[%02d/%02d]  %s", file_number, num, pane->select_path);
+        wprintw(status_bar, "[%02d/%02d]  [*%d]  %s", file_number, num, clipboard_num,
+                pane->select_path);
     }
 }
 
@@ -706,7 +709,7 @@ void print_notification(char *str)
     wattroff(status_bar, COLOR_PAIR(2));
     wattroff(status_bar, A_BOLD);
     wrefresh(status_bar);
-    usleep(500000);
+    usleep(800000);
 }
 
 char *get_human_filesize(double size, char *buf)
@@ -751,6 +754,7 @@ void append_clipboard(char *path)
         exit(EXIT_FAILURE);
     }
     fprintf(file, "%s\n", path);
+    clipboard_num++;
     fclose(file);
 }
 
@@ -781,6 +785,8 @@ void remove_clipboard(char *path)
             buf[strcspn(buf, "\r\n")] = 0;
             if (strcmp(path, buf) != 0)
                 fprintf(tmp_file, "%s\n", buf);
+            else
+                clipboard_num--;
         }
 
         fclose(tmp_file);
@@ -793,12 +799,51 @@ void remove_clipboard(char *path)
     }
 }
 
-void rm_files(pane *pane)
+void remove_files(pane *pane)
 {
-    char *argv[] = { "rm", "-f", "-r", pane->select_path, (char *)0 };
-    pid_t pid = fork_exec(argv[0], argv);
-    int status;
-    waitpid(pid, &status, 0);
+    if (clipboard_num != 0)
+    {
+        FILE *file = fopen(clipboard_path, "r");
+        char buf[PATH_MAX];
+        int del_num = 0;
+        while(fgets(buf, PATH_MAX, file))
+        {
+            buf[strcspn(buf, "\r\n")] = 0;
+            if (rm_file(buf) == 0)
+                del_num++;
+        }
+        if (del_num == clipboard_num)
+            print_notification("All files have been deleted.");
+        else
+            print_notification("Some files are not deleted. Permission denied!");
+        fclose(file);
+        remove(clipboard_path);
+        clipboard_num = 0;
+        pane->select = 1;
+    }
+    else
+    {
+        if (rm_file(pane->select_path) == 0)
+        {
+            print_notification("Deletion completed successfully.");
+            pane->select = 1;
+        }
+        else
+            print_notification("Permission denied!");
+    }
+}
+
+int rm_file(char *path)
+{
+    if (access(path, W_OK) == 0)
+    {
+        char *argv[] = { "rm", "-f", "-r", path, (char *)0 };
+        pid_t pid = fork_exec(argv[0], argv);
+        int status;
+        waitpid(pid, &status, 0);
+        return 0;
+    }
+    return -1;
 }
 
 void take_action(int key, pane *pane)
@@ -843,15 +888,7 @@ void take_action(int key, pane *pane)
             wattroff(status_bar, COLOR_PAIR(2));
             confirm_key = wgetch(status_bar);
             if (confirm_key == KEY_DELETE)
-            {
-                if (access(pane->select_path, W_OK) == 0)
-                {
-                    rm_files(pane);
-                    print_notification("Deleting!");
-                }
-                else
-                    print_notification("Permission denied");
-            }
+                remove_files(pane);
             break;
 
         case KEY_HIDE:
