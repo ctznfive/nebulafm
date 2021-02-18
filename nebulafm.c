@@ -822,9 +822,7 @@ void remove_files(pane *pane)
             if (rm_file(buf) == 0)
                 del_num++;
         }
-        if (del_num == clipboard_num)
-            print_notification("All files have been deleted.");
-        else
+        if (del_num != clipboard_num)
             print_notification("Some files aren't deleted. Permission denied!");
         fclose(file);
         remove(clipboard_path);
@@ -834,10 +832,7 @@ void remove_files(pane *pane)
     else
     {
         if (rm_file(pane->select_path) == 0)
-        {
-            print_notification("Deletion completed successfully.");
             pane->select = 1;
-        }
         else
             print_notification("Permission denied!");
     }
@@ -869,9 +864,7 @@ void yank_files(pane *pane)
             if (cp_file(buf, pane->path) == 0)
                 cp_num++;
         }
-        if (cp_num == clipboard_num)
-            print_notification("All files have been copied.");
-        else
+        if (cp_num != clipboard_num)
             print_notification("Some files aren't copied. Permission denied!");
         fclose(file);
         remove(clipboard_path);
@@ -895,7 +888,6 @@ void yank_files(pane *pane)
             pid_t pid = fork_exec(argv[0], argv);
             int status;
             waitpid(pid, &status, 0);
-            print_notification("A copy of the file/directory was successfully created.");
             free(cpy_path);
         }
         else
@@ -929,9 +921,7 @@ void move_files(pane *pane)
             if (mv_file(buf, pane->path) == 0)
                 mv_num++;
         }
-        if (mv_num == clipboard_num)
-            print_notification("All files have been moved.");
-        else
+        if (mv_num != clipboard_num)
             print_notification("Some files aren't moved. Permission denied!");
         fclose(file);
         remove(clipboard_path);
@@ -984,7 +974,6 @@ void rename_file(pane *pane)
             pid_t pid = fork_exec(argv[0], argv);
             int status;
             waitpid(pid, &status, 0);
-            print_notification("Renaming complete!");
             free(new_path);
             pane->select = 1;
         }
