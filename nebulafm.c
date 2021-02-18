@@ -15,6 +15,7 @@
 #include <magic.h>
 #include <fcntl.h>
 #include <pwd.h>
+#include <ctype.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -31,6 +32,7 @@
 #define KEY_DEL_CONF 'D'
 #define KEY_CPY 'y'
 #define KEY_MV 'v'
+#define KEY_RNM 'a'
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
@@ -101,6 +103,8 @@ void yank_files(pane *);
 int cp_file(char *, char *);
 void move_files(pane *);
 int mv_file(char *, char *);
+void rename_file(pane *);
+int is_empty_str(const char *);
 void take_action(int, pane *);
 
 int main()
@@ -715,7 +719,7 @@ void print_notification(char *str)
     wattroff(status_bar, COLOR_PAIR(2));
     wattroff(status_bar, A_BOLD);
     wrefresh(status_bar);
-    usleep(800000);
+    usleep(500000);
 }
 
 char *get_human_filesize(double size, char *buf)
@@ -951,6 +955,58 @@ int mv_file(char *path, char *dir)
     return -1;
 }
 
+void rename_file(pane *pane)
+{
+    char *new_name = malloc(NAME_MAX);
+    if (new_name == NULL)
+    {
+        perror("memory allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+    echo();
+    curs_set(1);
+    wgetnstr(status_bar, new_name, NAME_MAX);
+    noecho();
+    curs_set(0);
+    if (strlen(new_name) != 0 && is_empty_str(new_name) != 0)
+    {
+        if (access(pane->select_path, W_OK) == 0)
+        {
+            int alloc_size = snprintf(NULL, 0, "%s/%s", pane->path, new_name);
+            char *new_path = malloc(alloc_size + 1);
+            if (new_path == NULL)
+            {
+                perror("memory allocation error\n");
+                exit(EXIT_FAILURE);
+            }
+            snprintf(new_path, alloc_size + 1, "%s/%s", pane->path, new_name);
+            char *argv[] = { "mv", "-b", pane->select_path, new_path, (char *)0 };
+            pid_t pid = fork_exec(argv[0], argv);
+            int status;
+            waitpid(pid, &status, 0);
+            print_notification("Renaming complete!");
+            free(new_path);
+            pane->select = 1;
+        }
+        else
+            print_notification("Permission denied!");
+    }
+    else
+        print_notification("Please enter the correct name!");
+    free(new_name);
+}
+
+int is_empty_str(const char *str)
+{
+    while (*str != '\0')
+    {
+        if (isspace((unsigned char) *str) == 0)
+            return -1;
+        str++;
+    }
+    return 0;
+}
+
 void take_action(int key, pane *pane)
 {
     int confirm_key;
@@ -1030,6 +1086,13 @@ void take_action(int key, pane *pane)
             confirm_key = wgetch(status_bar);
             if (confirm_key == KEY_MV)
                 move_files(pane);
+            break;
+
+        case KEY_RNM:
+            wattron(status_bar, COLOR_PAIR(2));
+            print_line(status_bar, 1, "Rename: ");
+            wattroff(status_bar, COLOR_PAIR(2));
+            rename_file(pane);
             break;
     }
 }
