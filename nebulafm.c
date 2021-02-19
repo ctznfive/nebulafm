@@ -33,6 +33,8 @@
 #define KEY_CPY 'y'
 #define KEY_MV 'v'
 #define KEY_RNM 'a'
+#define KEY_TOP 'g'
+#define KEY_BTM 'G'
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
@@ -999,6 +1001,7 @@ int is_empty_str(const char *str)
 void take_action(int key, pane *pane)
 {
     int confirm_key;
+    int num;
 
     switch (key)
     {
@@ -1082,6 +1085,26 @@ void take_action(int key, pane *pane)
             print_line(status_bar, 1, "Rename: ");
             wattroff(status_bar, COLOR_PAIR(2));
             rename_file(pane);
+            break;
+
+        case KEY_TOP:
+            confirm_key = wgetch(status_bar);
+            if (confirm_key == KEY_TOP)
+            {
+                pane->top_index = 0;
+                pane->select = 1;
+            }
+            break;
+
+        case KEY_BTM:
+            num = pane->dirs_num + pane->files_num;
+            if (num > termsize_y - 2)
+            {
+                pane->top_index = num - termsize_y + 2;
+                pane->select = termsize_y - 2;
+            }
+            else
+                pane->select = num;
             break;
     }
 }
