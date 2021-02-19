@@ -20,7 +20,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define KEY_TAB 9
+#define KEY_CHPANE 9
 #define KEY_RETURN 10
 #define KEY_BACKWARD 'h'
 #define KEY_DOWNWARD 'j'
@@ -35,6 +35,7 @@
 #define KEY_RNM 'a'
 #define KEY_TOP 'g'
 #define KEY_BTM 'G'
+#define KEY_SHELL ':'
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
@@ -63,6 +64,7 @@ char *conf_path = NULL; // The path to the configuration directory
 char *clipboard_path = NULL;
 int clipboard_num = 0; // The number of files on the clipboard
 char *editor = NULL; // Default editor
+char *shell = NULL; // Default shell
 sigset_t signal_set; // Represent a signal set to specify what signals are affected
 WINDOW *status_bar;
 int back_flag = 0; // Changes to 1 after returning to parent directory
@@ -71,6 +73,7 @@ int hide_flag = HIDDENVIEW;
 /* Prototypes */
 void init_common(void);
 void set_editor(void);
+void set_shell(void);
 void init_paths(void);
 void make_conf_dir(char *);
 void init_curses(void);
@@ -107,6 +110,7 @@ void move_files(pane *);
 int mv_file(char *, char *);
 void rename_file(pane *);
 int is_empty_str(const char *);
+void open_shell(pane *);
 void take_action(int, pane *);
 
 int main()
@@ -201,6 +205,7 @@ int main()
     free(right_pane.select_path);
     free(right_pane.parent_dirname);
     free(editor);
+    free(shell);
     free(conf_path);
     free(clipboard_path);
 
@@ -215,6 +220,7 @@ void init_common()
     user_data = getpwuid(pw_uid);
     setlocale(LC_ALL, ""); // Unicode, etc
     set_editor();
+    set_shell();
     init_paths();
     make_conf_dir(conf_path);
 
@@ -245,6 +251,31 @@ void set_editor()
             exit(EXIT_FAILURE);
         }
         snprintf(editor, 4, "vim");
+    }
+}
+
+void set_shell()
+{
+    if (getenv("SHELL") != NULL)
+    {
+        int alloc_size = snprintf(NULL, 0, "%s", getenv("SHELL"));    
+        shell = malloc(alloc_size + 1);
+        if (shell == NULL)
+        {
+            perror("shell initialization error\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(shell, alloc_size + 1, "%s", getenv("SHELL"));
+    }
+    else
+    {
+        shell = malloc(10);
+        if (shell == NULL)
+        {
+            perror("shell initialization error\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(shell, 10, "/bin/bash");
     }
 }
 
@@ -998,6 +1029,37 @@ int is_empty_str(const char *str)
     return 0;
 }
 
+void open_shell(pane *pane)
+{
+    endwin();
+    sigprocmask(SIG_BLOCK, &signal_set, NULL); // block SIGWINCH
+    pid_t pid;
+    pid = fork();
+    if (pid == -1)
+    {
+        endwin();
+        perror("fork error\n");
+        exit(EXIT_FAILURE);
+    }
+    if (pid == 0)
+    {
+        chdir(pane->path);
+        char *cmd[] = { shell, (char *)0 };
+        execvp(cmd[0], cmd);
+        perror("EXEC:\n");
+        exit(EXIT_FAILURE);
+    }
+    int status;
+    waitpid(pid, &status, 0);
+
+    /* refresh */
+    left_pane.select = 1;
+    right_pane.select = 1;
+    left_pane.top_index = 0;
+    right_pane.top_index = 0;
+    refresh();
+}
+
 void take_action(int key, pane *pane)
 {
     int confirm_key;
@@ -1005,7 +1067,7 @@ void take_action(int key, pane *pane)
 
     switch (key)
     {
-        case KEY_TAB: // Press "tab" to change the active panel
+        case KEY_CHPANE:
             pane_flag = (pane_flag == LEFT) ? RIGHT : LEFT;
             break;
 
@@ -1105,6 +1167,10 @@ void take_action(int key, pane *pane)
             }
             else
                 pane->select = num;
+            break;
+
+        case KEY_SHELL:
+            open_shell(pane);
             break;
     }
 }
