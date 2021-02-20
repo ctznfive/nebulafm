@@ -36,6 +36,8 @@
 #define KEY_TOP 'g'
 #define KEY_BTM 'G'
 #define KEY_SHELL '!'
+#define KEY_SELALL 'V' // Add all files to the clipboard
+#define KEY_SELEMPTY 'R' // Clear clipboard
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
@@ -111,6 +113,7 @@ int mv_file(char *, char *);
 void rename_file(pane *);
 int is_empty_str(const char *);
 void open_shell(pane *);
+void add_list_clipboard(char *[], char *, int);
 void take_action(int, pane *);
 
 int main()
@@ -1060,10 +1063,31 @@ void open_shell(pane *pane)
     refresh();
 }
 
+void add_list_clipboard(char *list[], char *path, int num)
+{
+    int alloc_size;
+    char *filepath = NULL;
+    for (int index = 0; index < num; index++)
+    {
+        alloc_size = snprintf(NULL, 0, "%s/%s", path, list[index]);
+        filepath = malloc(alloc_size + 1);
+        if (filepath == NULL)
+        {
+            perror("memory allocation error\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(filepath, alloc_size + 1, "%s/%s", path, list[index]);
+        append_clipboard(filepath);
+        free(filepath);
+    }
+}
+
 void take_action(int key, pane *pane)
 {
     int confirm_key;
     int num;
+    char *dirs_list[pane->dirs_num];
+    char *files_list[pane->files_num];
 
     switch (key)
     {
@@ -1171,6 +1195,19 @@ void take_action(int key, pane *pane)
 
         case KEY_SHELL:
             open_shell(pane);
+            break;
+
+        case KEY_SELALL:
+            remove(clipboard_path);
+            clipboard_num = 0; 
+            get_files_in_array(pane->path, dirs_list, files_list);
+            add_list_clipboard(dirs_list, pane->path, pane->dirs_num);
+            add_list_clipboard(files_list, pane->path, pane->files_num);
+            break;
+        
+        case KEY_SELEMPTY:
+            remove(clipboard_path);
+            clipboard_num = 0; 
             break;
     }
 }
