@@ -35,7 +35,7 @@
 #define KEY_RNM 'a'
 #define KEY_TOP 'g'
 #define KEY_BTM 'G'
-#define KEY_SHELL ':'
+#define KEY_SHELL '!'
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
