@@ -312,7 +312,7 @@ void init_paths(int argc, char *argv[])
         }
         else
         {
-            printf("The directory does not exist.");
+            printf("The directory does not exist.\n");
             exit(EXIT_FAILURE);
         }
     }
@@ -346,7 +346,7 @@ void init_paths(int argc, char *argv[])
 
         if (access(left_pane.path, R_OK) != 0)
         {
-            printf("The directory does not exist.");
+            printf("The directory does not exist.\n");
             exit(EXIT_FAILURE);
         }
         init_parent_dir(left_pane.path);
@@ -354,7 +354,7 @@ void init_paths(int argc, char *argv[])
 
     if (argc > 2)
     {
-        printf("Incorrect arguments. Use `man nebulafm` for help.");
+        printf("Incorrect arguments. Use `man nebulafm` for help.\n");
         exit(EXIT_FAILURE);
     }
 
