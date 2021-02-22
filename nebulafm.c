@@ -73,10 +73,12 @@ int back_flag = 0; // Changes to 1 after returning to parent directory
 int hide_flag = HIDDENVIEW;
 
 /* Prototypes */
-void init_common(void);
+void init_common(int, char *[]);
 void set_editor(void);
 void set_shell(void);
-void init_paths(void);
+void init_paths(int, char *[]);
+void init_current_dir(char *);
+void init_parent_dir(char *);
 void make_conf_dir(char *);
 void init_curses(void);
 void get_number_of_files(pane *);
@@ -116,12 +118,12 @@ void open_shell(pane *);
 void add_list_clipboard(char *[], char *, int);
 void take_action(int, pane *);
 
-int main()
+int main(int argc, char *argv[])
 {
     int keypress;
 
     /* Initialization */
-    init_common();
+    init_common(argc, argv);
     init_curses();
 
     do
@@ -217,14 +219,14 @@ int main()
     return EXIT_SUCCESS;
 }
 
-void init_common()
+void init_common(int argc, char *argv[])
 {
     uid_t pw_uid = getuid();
     user_data = getpwuid(pw_uid);
     setlocale(LC_ALL, ""); // Unicode, etc
     set_editor();
     set_shell();
-    init_paths();
+    init_paths(argc, argv);
     make_conf_dir(conf_path);
 
     /* Setting a mask to block/unblock SIGWINCH (term window size changed) */
@@ -282,42 +284,98 @@ void set_shell()
     }
 }
 
-void init_paths()
+void init_paths(int argc, char *argv[])
 {
     char cwd[PATH_MAX];
-    getcwd(cwd, sizeof(cwd));
-    int alloc_size = snprintf(NULL, 0, "%s", cwd);
-    left_pane.path = malloc(alloc_size + 1);
-    if (left_pane.path == NULL)
-    {
-        perror("directory initialization error\n");
-        exit(EXIT_FAILURE);
-    }
-    snprintf(left_pane.path, alloc_size + 1, "%s", cwd);
-    right_pane.path = malloc(alloc_size + 1);
-    if (right_pane.path == NULL)
-    {
-        perror("directory initialization error\n");
-        exit(EXIT_FAILURE);
-    }
-    snprintf(right_pane.path, alloc_size + 1, "%s", cwd);
+    int alloc_size;
 
-    char *ptr = strrchr(cwd, '/');
-    alloc_size = snprintf(NULL, 0, "%s", ptr);
-    left_pane.parent_dirname = malloc(alloc_size + 1);
-    if (left_pane.parent_dirname == NULL)
+    if (argc == 1)
     {
+        if (getcwd(cwd, sizeof(cwd)) == NULL)
+        {
+            perror("current directory initialization error\n");
+            exit(EXIT_FAILURE);
+        }
+        init_current_dir(cwd);
+        init_parent_dir(cwd);
+    }
+
+    /* Argument as an absolute path */
+    if (argc == 2 && argv[1][0] == '/')
+    {
+        if(strlen(argv[1]) > 1 && argv[1][strlen(argv[1]) - 1] == '/')
+            argv[1][strlen(argv[1]) - 1] = '\0';
+        if (access(argv[1], R_OK) == 0)
+        {
+            init_current_dir(argv[1]);
+            init_parent_dir(argv[1]);
+        }
+        else
+        {
+            printf("The directory does not exist.");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    /* Argument as a relative path */
+    if (argc == 2 && argv[1][0] != '/')
+    {
+        if(strlen(argv[1]) > 1 && argv[1][strlen(argv[1]) - 1] == '/')
+            argv[1][strlen(argv[1]) - 1] = '\0';
+        if (getcwd(cwd, sizeof(cwd)) == NULL)
+        {
+            perror("current directory initialization error\n");
+            exit(EXIT_FAILURE);
+        }
+        int alloc_size_wd = snprintf(NULL, 0, "%s", cwd);
+        alloc_size = snprintf(NULL, 0, "%s", argv[1]);
+        left_pane.path = malloc(alloc_size_wd + alloc_size + 2);
+        if (left_pane.path == NULL)
+        {
+            perror("directory initialization error\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(left_pane.path, alloc_size_wd + alloc_size + 2, "%s/%s", cwd, argv[1]);
+        right_pane.path = malloc(alloc_size_wd + alloc_size + 2);
+        if (right_pane.path == NULL)
+        {
+            perror("directory initialization error\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(right_pane.path, alloc_size_wd + alloc_size + 2, "%s/%s", cwd, argv[1]);
+
+        if (access(left_pane.path, R_OK) != 0)
+        {
+            printf("The directory does not exist.");
+            exit(EXIT_FAILURE);
+        }
+        init_parent_dir(left_pane.path);
+    }
+
+    if (argc > 2)
+    {
+        printf("Incorrect arguments. Use `man nebulafm` for help.");
+        exit(EXIT_FAILURE);
+    }
+
+    /* If the initialization directory is empty */
+    alloc_size = snprintf(NULL, 0, "%s", left_pane.path);
+    left_pane.select_path = malloc(alloc_size + 1);
+    if (left_pane.select_path == NULL)
+    {
+        endwin();
         perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
-    snprintf(left_pane.parent_dirname, alloc_size + 1, "%s", ptr + 1);
-    right_pane.parent_dirname = malloc(alloc_size + 1);
-    if (right_pane.parent_dirname == NULL)
+    snprintf(left_pane.select_path, alloc_size + 1, "%s", left_pane.path);
+    right_pane.select_path = malloc(alloc_size + 1);
+    if (right_pane.select_path == NULL)
     {
+        endwin();
         perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
-    snprintf(right_pane.parent_dirname, alloc_size + 1, "%s", ptr + 1);
+    snprintf(right_pane.select_path, alloc_size + 1, "%s", left_pane.path);
 
     /* Set the path for the configuration directory */ 
     char *conf_dir = getenv("XDG_CONFIG_HOME");
@@ -353,6 +411,45 @@ void init_paths()
         exit(EXIT_FAILURE);
     }
     snprintf(clipboard_path, alloc_size + 1, "%s/clipboard", conf_path);
+}
+
+void init_current_dir(char *path)
+{
+    int alloc_size = snprintf(NULL, 0, "%s", path);
+    left_pane.path = malloc(alloc_size + 1);
+    if (left_pane.path == NULL)
+    {
+        perror("directory initialization error\n");
+        exit(EXIT_FAILURE);
+    }
+    snprintf(left_pane.path, alloc_size + 1, "%s", path);
+    right_pane.path = malloc(alloc_size + 1);
+    if (right_pane.path == NULL)
+    {
+        perror("directory initialization error\n");
+        exit(EXIT_FAILURE);
+    }
+    snprintf(right_pane.path, alloc_size + 1, "%s", path);
+}
+
+void init_parent_dir(char *path)
+{
+    char *ptr = strrchr(path, '/');
+    int alloc_size = snprintf(NULL, 0, "%s", ptr);
+    left_pane.parent_dirname = malloc(alloc_size + 1);
+    if (left_pane.parent_dirname == NULL)
+    {
+        perror("memory allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+    snprintf(left_pane.parent_dirname, alloc_size + 1, "%s", ptr + 1);
+    right_pane.parent_dirname = malloc(alloc_size + 1);
+    if (right_pane.parent_dirname == NULL)
+    {
+        perror("memory allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+    snprintf(right_pane.parent_dirname, alloc_size + 1, "%s", ptr + 1);
 }
 
 void make_conf_dir(char *path)
