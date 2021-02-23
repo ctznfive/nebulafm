@@ -1,5 +1,7 @@
 // % gcc nebulafm.c -o nebulafm -Wall -Wextra -ggdb -lmagic $(ncursesw5-config --cflags --libs)
 
+/* See LICENSE for license details. */
+
 #define _BSD_SOURCE
 
 #include <stdio.h>
@@ -1216,12 +1218,17 @@ void make_new(pane *pane, char *cmd)
                 exit(EXIT_FAILURE);
             }
             snprintf(new_path, alloc_size + 1, "%s/%s", pane->path, new);
-            char *argv[] = { cmd, new_path, (char *)0 };
-            pid_t pid = fork_exec(argv[0], argv);
-            int status;
-            waitpid(pid, &status, 0);
-            free(new_path);
-            pane->select = 1;
+            if (access(new_path, R_OK) != 0)
+            {
+                char *argv[] = { cmd, new_path, (char *)0 };
+                pid_t pid = fork_exec(argv[0], argv);
+                int status;
+                waitpid(pid, &status, 0);
+                free(new_path);
+                pane->select = 1;
+            }
+            else
+                print_notification("File/directory exists!");
         }
         else
             print_notification("Permission denied!");
