@@ -42,6 +42,7 @@
 #define KEY_SELEMPTY 'R' // Clear clipboard
 #define KEY_MAKEDIR 'M'
 #define KEY_MAKEFILE 'F'
+#define KEY_VIEW 'i' // Preview file or directory
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
@@ -63,6 +64,7 @@ pane;
 /* Globals */
 pane left_pane  = { .select = 1 };
 pane right_pane = { .select = 1 };
+WINDOW *status_bar;
 int pane_flag = LEFT; // 0 - the active panel on the left; 1 - the active panel on the right
 int termsize_x, termsize_y;
 struct passwd *user_data;
@@ -72,7 +74,6 @@ int clipboard_num = 0; // The number of files on the clipboard
 char *editor = NULL; // Default editor
 char *shell = NULL; // Default shell
 sigset_t signal_set; // Represent a signal set to specify what signals are affected
-WINDOW *status_bar;
 int back_flag = 0; // Changes to 1 after returning to parent directory
 int hide_flag = HIDDENVIEW;
 
@@ -121,6 +122,7 @@ int is_empty_str(const char *);
 void open_shell(pane *);
 void add_list_clipboard(char *[], char *, int);
 void make_new(pane *, char *);
+void preview_select(pane *pane);
 void take_action(int, pane *);
 
 int main(int argc, char *argv[])
@@ -1238,6 +1240,83 @@ void make_new(pane *pane, char *cmd)
     free(new);
 }
 
+void preview_select(pane *pane)
+{
+    if (access(pane->select_path, R_OK) == 0)
+    {
+        endwin();
+        sigprocmask(SIG_BLOCK, &signal_set, NULL); // block SIGWINCH
+        if (is_dir(pane->select_path) == 0)
+        {
+            char *argv[] = { "less", pane->select_path, (char *)0 };
+            pid_t pid = fork_exec(argv[0], argv);
+            int status;
+            waitpid(pid, &status, 0);
+        }
+        else
+        {
+            /* ls -lAh | less */
+            int pipefd[2];
+            if (pipe(pipefd) == -1)
+            {
+                endwin();
+                perror("pipe error\n");
+                exit(EXIT_FAILURE);
+            }
+
+            pid_t pid1 = fork();
+            if (pid1 == -1)
+            {
+                endwin();
+                perror("fork error\n");
+                exit(EXIT_FAILURE);
+            }
+            if (pid1 == 0)
+            {
+                int fd = open("/dev/null", O_WRONLY);
+                dup2(fd, STDERR_FILENO);
+                close(fd);
+                dup2(pipefd[1], STDOUT_FILENO);
+                close(pipefd[0]);
+                close(pipefd[1]);
+                char *argv[] = { "ls", "-l", "-A", "-h", pane->select_path, (char *)0 };
+                execvp(argv[0], argv);
+                perror("EXEC:\n");
+                exit(EXIT_FAILURE);
+            }
+
+            pid_t pid2 = fork();
+            if (pid2 == -1)
+            {
+                endwin();
+                perror("fork error\n");
+                exit(EXIT_FAILURE);
+            }
+            if (pid2 == 0)
+            {
+                int fd = open("/dev/null", O_WRONLY);
+                dup2(fd, STDERR_FILENO);
+                close(fd);
+                dup2(pipefd[0], STDIN_FILENO);
+                close(pipefd[0]);
+                close(pipefd[1]);
+                char *argv[] = { "less", (char *)0 };
+                execvp(argv[0], argv);
+                perror("EXEC:\n");
+                exit(EXIT_FAILURE);
+            }
+
+            close(pipefd[0]);
+            close(pipefd[1]);
+            int status;
+            waitpid(pid1, &status, 0);
+            waitpid(pid2, &status, 0);
+        }
+    }
+    else
+        print_notification("Permission denied!");
+}
+
 void take_action(int key, pane *pane)
 {
     int confirm_key;
@@ -1378,6 +1457,10 @@ void take_action(int key, pane *pane)
             print_line(status_bar, 1, "touch: ");
             wattroff(status_bar, COLOR_PAIR(2));
             make_new(pane, "touch");
+            break;
+
+        case KEY_VIEW:
+            preview_select(pane);
             break;
     }
 }
