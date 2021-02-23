@@ -38,6 +38,8 @@
 #define KEY_SHELL '!'
 #define KEY_SELALL 'V' // Add all files to the clipboard
 #define KEY_SELEMPTY 'R' // Clear clipboard
+#define KEY_MAKEDIR 'M'
+#define KEY_MAKEFILE 'F'
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
@@ -116,6 +118,7 @@ void rename_file(pane *);
 int is_empty_str(const char *);
 void open_shell(pane *);
 void add_list_clipboard(char *[], char *, int);
+void make_new(pane *, char *);
 void take_action(int, pane *);
 
 int main(int argc, char *argv[])
@@ -1098,8 +1101,7 @@ void rename_file(pane *pane)
     noecho();
     curs_set(0);
     if (strlen(new_name) != 0 && is_empty_str(new_name) != 0)
-    {
-        if (access(pane->select_path, W_OK) == 0)
+    { if (access(pane->select_path, W_OK) == 0)
         {
             int alloc_size = snprintf(NULL, 0, "%s/%s", pane->path, new_name);
             char *new_path = malloc(alloc_size + 1);
@@ -1185,6 +1187,48 @@ void add_list_clipboard(char *list[], char *path, int num)
         append_clipboard(filepath);
         free(filepath);
     }
+}
+
+void make_new(pane *pane, char *cmd)
+{
+    char *new = malloc(NAME_MAX);
+    if (new == NULL)
+    {
+        endwin();
+        perror("memory allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+    echo();
+    curs_set(1);
+    wgetnstr(status_bar, new, NAME_MAX);
+    noecho();
+    curs_set(0);
+    if (strlen(new) != 0 && is_empty_str(new) != 0)
+    {
+        if (access(pane->path, W_OK) == 0)
+        {
+            int alloc_size = snprintf(NULL, 0, "%s/%s", pane->path, new);
+            char *new_path = malloc(alloc_size + 1);
+            if (new_path == NULL)
+            {
+                endwin();
+                perror("memory allocation error\n");
+                exit(EXIT_FAILURE);
+            }
+            snprintf(new_path, alloc_size + 1, "%s/%s", pane->path, new);
+            char *argv[] = { cmd, new_path, (char *)0 };
+            pid_t pid = fork_exec(argv[0], argv);
+            int status;
+            waitpid(pid, &status, 0);
+            free(new_path);
+            pane->select = 1;
+        }
+        else
+            print_notification("Permission denied!");
+    }
+    else
+        print_notification("Please enter the correct name!");
+    free(new);
 }
 
 void take_action(int key, pane *pane)
@@ -1313,6 +1357,20 @@ void take_action(int key, pane *pane)
         case KEY_SELEMPTY:
             remove(clipboard_path);
             clipboard_num = 0; 
+            break;
+
+        case KEY_MAKEDIR:
+            wattron(status_bar, COLOR_PAIR(2));
+            print_line(status_bar, 1, "mkdir: ");
+            wattroff(status_bar, COLOR_PAIR(2));
+            make_new(pane, "mkdir");
+            break;
+
+        case KEY_MAKEFILE:
+            wattron(status_bar, COLOR_PAIR(2));
+            print_line(status_bar, 1, "touch: ");
+            wattroff(status_bar, COLOR_PAIR(2));
+            make_new(pane, "touch");
             break;
     }
 }
