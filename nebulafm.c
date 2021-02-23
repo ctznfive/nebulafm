@@ -158,6 +158,7 @@ int main(int argc, char *argv[])
                 restore_indexes(dirs_list_r, &right_pane);
             else
             {
+                endwin();
                 perror("pane_flag initialization error\n");
                 exit(EXIT_FAILURE);
             }
@@ -193,6 +194,7 @@ int main(int argc, char *argv[])
         }
         else
         {
+            endwin();
             perror("pane_flag initialization error\n");
             exit(EXIT_FAILURE);
         }
@@ -363,7 +365,6 @@ void init_paths(int argc, char *argv[])
     left_pane.select_path = malloc(alloc_size + 1);
     if (left_pane.select_path == NULL)
     {
-        endwin();
         perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
@@ -371,7 +372,6 @@ void init_paths(int argc, char *argv[])
     right_pane.select_path = malloc(alloc_size + 1);
     if (right_pane.select_path == NULL)
     {
-        endwin();
         perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
@@ -614,6 +614,7 @@ int print_list(pane *pane, char *list[], int num, int start_index, int line_pos,
         print_path = malloc(alloc_size + 1);
         if (print_path == NULL)
         {
+            endwin();
             perror("memory allocation error\n");
             exit(EXIT_FAILURE);
         }
@@ -893,6 +894,7 @@ void append_clipboard(char *path)
     FILE *file = fopen(clipboard_path, "a+");
     if (file == NULL)
     {
+        endwin();
         perror("clipboard access error\n");
         exit(EXIT_FAILURE);
     }
@@ -911,6 +913,7 @@ void remove_clipboard(char *path)
         tmp_clipboard_path = malloc(alloc_size + 1);
         if (tmp_clipboard_path == NULL)
         {
+            endwin();
             perror("temp clipboard initialization error\n");
             exit(EXIT_FAILURE);
         }
@@ -920,6 +923,7 @@ void remove_clipboard(char *path)
         FILE *tmp_file = fopen(tmp_clipboard_path, "a+");
         if (tmp_file == NULL)
         {
+            endwin();
             perror("temp clipboard access error\n");
             exit(EXIT_FAILURE);
         }
@@ -1013,6 +1017,7 @@ void yank_files(pane *pane)
             char *cpy_path = malloc(alloc_size + 1);
             if (cpy_path == NULL)
             {
+                endwin();
                 perror("memory allocation error\n");
                 exit(EXIT_FAILURE);
             }
@@ -1083,6 +1088,7 @@ void rename_file(pane *pane)
     char *new_name = malloc(NAME_MAX);
     if (new_name == NULL)
     {
+        endwin();
         perror("memory allocation error\n");
         exit(EXIT_FAILURE);
     }
@@ -1099,6 +1105,7 @@ void rename_file(pane *pane)
             char *new_path = malloc(alloc_size + 1);
             if (new_path == NULL)
             {
+                endwin();
                 perror("memory allocation error\n");
                 exit(EXIT_FAILURE);
             }
@@ -1170,6 +1177,7 @@ void add_list_clipboard(char *list[], char *path, int num)
         filepath = malloc(alloc_size + 1);
         if (filepath == NULL)
         {
+            endwin();
             perror("memory allocation error\n");
             exit(EXIT_FAILURE);
         }
