@@ -43,6 +43,7 @@
 #define KEY_MAKEDIR 'M'
 #define KEY_MAKEFILE 'F'
 #define KEY_VIEW 'i' // Preview file or directory
+#define KEY_ADDBKMR 'm' // Preview file or directory
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
@@ -123,7 +124,9 @@ int is_empty_str(const char *);
 void open_shell(pane *);
 void add_list_clipboard(char *[], char *, int);
 void make_new(pane *, char *);
-void preview_select(pane *pane);
+void preview_select(pane *);
+int exist_bookmark(char);
+void add_bookmark(char *, char);
 void take_action(int, pane *);
 
 int main(int argc, char *argv[])
@@ -223,6 +226,7 @@ int main(int argc, char *argv[])
     free(shell);
     free(conf_path);
     free(clipboard_path);
+    free(bookmarks_path);
 
     endwin();
     clear();
@@ -1328,6 +1332,38 @@ void preview_select(pane *pane)
         print_notification("Permission denied!");
 }
 
+int exist_bookmark(char key)
+{
+    FILE *file = fopen(bookmarks_path, "r");
+    if (file != NULL)
+    {
+        char buf[PATH_MAX];
+        while(fgets(buf, PATH_MAX, file))
+        {
+            if (buf[0] == key)
+            {
+                fclose(file);
+                return 0;
+            }
+        }
+        fclose(file);
+    }
+    return -1;
+}
+
+void add_bookmark(char *path, char key)
+{
+    FILE *file = fopen(bookmarks_path, "a+");
+    if (file == NULL)
+    {
+        endwin();
+        perror("bookmarks access error\n");
+        exit(EXIT_FAILURE);
+    }
+    fprintf(file, "%c:%s\n", key, path);
+    fclose(file);
+}
+
 void take_action(int key, pane *pane)
 {
     int confirm_key;
@@ -1472,6 +1508,22 @@ void take_action(int key, pane *pane)
 
         case KEY_VIEW:
             preview_select(pane);
+            break;
+
+        case KEY_ADDBKMR:
+            wattron(status_bar, COLOR_PAIR(2));
+            print_line(status_bar, 1, "Enter the key to add a new bookmark... ");
+            wattroff(status_bar, COLOR_PAIR(2));
+            confirm_key = wgetch(status_bar);
+            if (confirm_key != ERR && isalnum(confirm_key) != 0)
+            {
+                if (exist_bookmark(confirm_key) != 0)
+                    add_bookmark(pane->path, confirm_key);
+                else
+                    print_notification("The bookmark button already exists.");
+            }
+            else
+                print_notification("A letter or number is expected.");
             break;
     }
 }
