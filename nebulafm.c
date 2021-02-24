@@ -43,7 +43,9 @@
 #define KEY_MAKEDIR 'M'
 #define KEY_MAKEFILE 'F'
 #define KEY_VIEW 'i' // Preview file or directory
-#define KEY_ADDBKMR 'm' // Preview file or directory
+#define KEY_ADDBKMR 'm' // Add a new bookmark
+#define KEY_OPENBKMR '\'' // Open bookmark list
+#define KEY_DELBKMR 'Z' // Delete the bookmark
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
@@ -66,6 +68,7 @@ pane;
 pane left_pane  = { .select = 1 };
 pane right_pane = { .select = 1 };
 WINDOW *status_bar;
+WINDOW *bookmarks;
 int pane_flag = LEFT; // 0 - the active panel on the left; 1 - the active panel on the right
 int termsize_x, termsize_y;
 struct passwd *user_data;
@@ -75,6 +78,7 @@ char *bookmarks_path = NULL;
 int clipboard_num = 0; // The number of files on the clipboard
 char *editor = NULL; // Default editor
 char *shell = NULL; // Default shell
+int bookmarks_num = 0; // The number of bookmarks
 sigset_t signal_set; // Represent a signal set to specify what signals are affected
 int back_flag = 0; // Changes to 1 after returning to parent directory
 int hide_flag = HIDDENVIEW;
@@ -125,8 +129,12 @@ void open_shell(pane *);
 void add_list_clipboard(char *[], char *, int);
 void make_new(pane *, char *);
 void preview_select(pane *);
+int get_bookmarks_num(void);
 int exist_bookmark(char);
 void add_bookmark(char *, char);
+void print_bookmarks(void);
+void open_bookmark(char, pane *);
+void remove_bookmark(char);
 void take_action(int, pane *);
 
 int main(int argc, char *argv[])
@@ -875,7 +883,7 @@ void print_notification(char *str)
     wattroff(status_bar, COLOR_PAIR(2));
     wattroff(status_bar, A_BOLD);
     wrefresh(status_bar);
-    usleep(500000);
+    usleep(1000000);
 }
 
 char *get_human_filesize(double size, char *buf)
@@ -1332,6 +1340,21 @@ void preview_select(pane *pane)
         print_notification("Permission denied!");
 }
 
+int get_bookmarks_num()
+{
+    int num = 0;
+    FILE *file = fopen(bookmarks_path, "r");
+    if (file != NULL)
+    {
+        char buf[PATH_MAX];
+        while(fgets(buf, PATH_MAX, file))
+            num++;
+        fclose(file);
+        return num;
+    }
+    return -1;
+}
+
 int exist_bookmark(char key)
 {
     FILE *file = fopen(bookmarks_path, "r");
@@ -1362,6 +1385,136 @@ void add_bookmark(char *path, char key)
     }
     fprintf(file, "%c:%s\n", key, path);
     fclose(file);
+}
+
+void print_bookmarks()
+{
+    int i = 0;
+    char buf[PATH_MAX];
+    FILE *file = fopen(bookmarks_path, "r");
+    if (file == NULL)
+    {
+        endwin();
+        perror("bookmarks access error\n");
+        exit(EXIT_FAILURE);
+    }
+    bookmarks = create_window(bookmarks_num + 3, termsize_x, termsize_y - bookmarks_num - 4, 0);
+    wattron(bookmarks, COLOR_PAIR(2));
+    wmove(bookmarks, 1, 1);
+    wprintw(bookmarks, "mark\tpath\n");
+    wattroff(bookmarks, COLOR_PAIR(2));
+    while(fgets(buf, PATH_MAX, file))
+    {
+        wmove(bookmarks, i + 2, 1);
+        wprintw(bookmarks, " %c", buf[0]);
+        wprintw(bookmarks, "\t%s", &buf[2]);
+        i++;
+    }
+    fclose(file);
+    box(bookmarks, 0, 0);
+    wrefresh(bookmarks);
+}
+
+void open_bookmark(char key, pane *pane)
+{
+    FILE *file = fopen(bookmarks_path, "r");
+    if (file == NULL)
+    {
+        endwin();
+        perror("bookmarks access error\n");
+        exit(EXIT_FAILURE);
+    }
+    char buf[PATH_MAX];
+    while(fgets(buf, PATH_MAX, file))
+    {
+        if (buf[0] == key)
+        {
+            buf[strcspn(buf, "\r\n")] = 0;
+            int alloc_size = snprintf(NULL, 0, "%s", buf);
+            char *new_path = malloc(alloc_size + 1);
+            if (new_path == NULL)
+            {
+                endwin();
+                perror("memory allocation error\n");
+                exit(EXIT_FAILURE);
+            }
+            strncpy(new_path, buf + 2, strlen(buf) - 1);
+
+            if (access(new_path, R_OK) == 0)
+            {
+                free(pane->path);
+                alloc_size = snprintf(NULL, 0, "%s", new_path);
+                pane->path = malloc(alloc_size + 1);
+                if (pane->path == NULL)
+                {
+                    endwin();
+                    perror("memory allocation error\n");
+                    exit(EXIT_FAILURE);
+                }
+                snprintf(pane->path, alloc_size + 1, "%s", new_path);
+
+                pane->select = 1;
+                pane->top_index = 0;
+                /* If the directory is empty */
+                alloc_size = snprintf(NULL, 0, "%s", pane->path);
+                pane->select_path = malloc(alloc_size + 1);
+                if (pane->select_path == NULL)
+                {
+                    perror("memory allocation error\n");
+                    exit(EXIT_FAILURE);
+                }
+                snprintf(pane->select_path, alloc_size + 1, "%s", pane->path);
+            }
+            else
+                print_notification("The directory doesn't exist.");
+            free(new_path);
+            break;
+        }
+    }
+    fclose(file);
+}
+
+void remove_bookmark(char key)
+{
+    FILE *file = fopen(bookmarks_path, "r");
+    if (file != NULL)
+    {
+        char *tmp_bookmarks_path = NULL;
+        int alloc_size = snprintf(NULL, 0, "%s/.bookmarks", conf_path);
+        tmp_bookmarks_path = malloc(alloc_size + 1);
+        if (tmp_bookmarks_path == NULL)
+        {
+            endwin();
+            perror("temp bookmarks initialization error\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(tmp_bookmarks_path, alloc_size + 1, "%s/.bookmarks", conf_path);
+
+        char buf[PATH_MAX];
+        FILE *tmp_file = fopen(tmp_bookmarks_path, "a+");
+        if (tmp_file == NULL)
+        {
+            endwin();
+            perror("temp bookmarks access error\n");
+            exit(EXIT_FAILURE);
+        }
+        while (fgets(buf, PATH_MAX, file))
+        {
+            buf[strcspn(buf, "\r\n")] = 0;
+            if (buf[0] != key)
+                fprintf(tmp_file, "%s\n", buf);
+            else
+                print_notification("Bookmark deleted.");
+        }
+
+        fclose(tmp_file);
+        fclose(file);
+        char *argv[] = { "mv", tmp_bookmarks_path, bookmarks_path, (char *)0 };
+        pid_t pid = fork_exec(argv[0], argv);
+        int status;
+        waitpid(pid, &status, 0);
+        free(tmp_bookmarks_path);
+    }
 }
 
 void take_action(int key, pane *pane)
@@ -1524,6 +1677,36 @@ void take_action(int key, pane *pane)
             }
             else
                 print_notification("A letter or number is expected.");
+            break;
+
+        case KEY_OPENBKMR:
+            bookmarks_num = get_bookmarks_num();
+            if (bookmarks_num == -1 || bookmarks_num == 0)
+                print_notification("No bookmarks available.");
+            else
+            {
+                print_bookmarks();
+                confirm_key = wgetch(bookmarks);
+                open_bookmark(confirm_key, pane);
+                delwin(bookmarks);
+            }
+            break;
+
+        case KEY_DELBKMR:
+            wattron(status_bar, COLOR_PAIR(2));
+            print_line(status_bar, 1, "Which bookmark to delete? ");
+            wattroff(status_bar, COLOR_PAIR(2));
+            wrefresh(status_bar);
+            bookmarks_num = get_bookmarks_num();
+            if (bookmarks_num == -1 || bookmarks_num == 0)
+                print_notification("No bookmarks available.");
+            else
+            {
+                print_bookmarks();
+                confirm_key = wgetch(bookmarks);
+                remove_bookmark(confirm_key);
+                delwin(bookmarks);
+            }
             break;
     }
 }
