@@ -70,6 +70,7 @@ int termsize_x, termsize_y;
 struct passwd *user_data;
 char *conf_path = NULL; // The path to the configuration directory
 char *clipboard_path = NULL;
+char *bookmarks_path = NULL;
 int clipboard_num = 0; // The number of files on the clipboard
 char *editor = NULL; // Default editor
 char *shell = NULL; // Default shell
@@ -418,6 +419,16 @@ void init_paths(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
     snprintf(clipboard_path, alloc_size + 1, "%s/clipboard", conf_path);
+
+    /* Set the path for the bookmarks file */ 
+    alloc_size = snprintf(NULL, 0, "%s/bookmarks", conf_path);
+    bookmarks_path = malloc(alloc_size + 1);
+    if (bookmarks_path == NULL)
+    {
+        perror("bookmarks initialization error\n");
+        exit(EXIT_FAILURE);
+    }
+    snprintf(bookmarks_path, alloc_size + 1, "%s/bookmarks", conf_path);
 }
 
 void init_current_dir(char *path)
