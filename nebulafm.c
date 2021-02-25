@@ -46,6 +46,7 @@
 #define KEY_ADDBKMR 'm' // Add a new bookmark
 #define KEY_OPENBKMR '\'' // Open bookmark list
 #define KEY_DELBKMR 'Z' // Delete the bookmark
+#define KEY_SEARCH '/'
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
@@ -126,6 +127,7 @@ int mv_file(char *, char *);
 void rename_file(pane *);
 int is_empty_str(const char *);
 void open_shell(pane *);
+void select_all(pane *);
 void add_list_clipboard(char *[], char *, int);
 void make_new(pane *, char *);
 void preview_select(pane *);
@@ -135,6 +137,8 @@ void add_bookmark(char *, char);
 void print_bookmarks(void);
 void open_bookmark(char, pane *);
 void remove_bookmark(char);
+void search(pane *);
+int search_list(char *, char *[], int);
 void take_action(int, pane *);
 
 int main(int argc, char *argv[])
@@ -1196,6 +1200,17 @@ void open_shell(pane *pane)
     refresh();
 }
 
+void select_all(pane *pane)
+{
+    remove(clipboard_path);
+    clipboard_num = 0; 
+    char *dirs_list[pane->dirs_num];
+    char *files_list[pane->files_num];
+    get_files_in_array(pane->path, dirs_list, files_list);
+    add_list_clipboard(dirs_list, pane->path, pane->dirs_num);
+    add_list_clipboard(files_list, pane->path, pane->files_num);
+}
+
 void add_list_clipboard(char *list[], char *path, int num)
 {
     int alloc_size;
@@ -1517,12 +1532,92 @@ void remove_bookmark(char key)
     }
 }
 
+void search(pane *pane)
+{
+    char *dirs_list[pane->dirs_num];
+    char *files_list[pane->files_num];
+    char *search_substr = malloc(NAME_MAX);
+    if (search_substr == NULL)
+    {
+        endwin();
+        perror("memory allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+    echo();
+    curs_set(1);
+    wgetnstr(status_bar, search_substr, NAME_MAX);
+    noecho();
+    curs_set(0);
+    if (strlen(search_substr) != 0 && is_empty_str(search_substr) != 0)
+    {
+        get_files_in_array(pane->path, dirs_list, files_list);
+        qsort(dirs_list, pane->dirs_num, sizeof(char *), compare_elements);
+        int dir_found = search_list(search_substr, dirs_list, pane->dirs_num);
+        if (dir_found == -1)
+        {
+            qsort(files_list, pane->files_num, sizeof(char *), compare_elements);
+            int file_found = search_list(search_substr, files_list, pane->files_num);
+            if (file_found == -1)
+                print_notification("Not found!");
+            else
+            {
+                /* The file has been found. */
+                if (termsize_y > pane->dirs_num + pane->files_num)
+                {
+                    pane->top_index = 0;
+                    pane->select = pane->dirs_num + file_found + 1;
+                }
+                else if (file_found < pane->files_num - (termsize_y - 2))
+                {
+                    pane->top_index = pane->dirs_num + file_found;
+                    pane->select = 1;
+                }
+                else
+                {
+                    pane->top_index = pane->dirs_num + pane->files_num - (termsize_y - 2);
+                    pane->select = termsize_y - 1 - (pane->files_num - file_found);
+                }
+            }
+        }
+        else
+        {
+            /* The directory has been found. */
+            if (termsize_y > pane->dirs_num)
+            {
+                pane->top_index = 0;
+                pane->select = dir_found + 1;
+            }
+            else if (dir_found < pane->dirs_num - (termsize_y - 2))
+            {
+                pane->top_index = dir_found;
+                pane->select = 1;
+            }
+            else
+            {
+                pane->top_index = pane->dirs_num - (termsize_y - 2);
+                pane->select = termsize_y - 1 - (pane->dirs_num - dir_found);
+            }
+        }
+    }
+    else
+        print_notification("Please enter the correct name!");
+    free(search_substr);
+}
+
+int search_list(char *substr, char *list[], int num)
+{
+    for (int index = 0; index < num; index++)
+    {
+        char *found = strcasestr(list[index], substr);
+        if (found != NULL)
+            return index;
+    }
+    return -1;
+}
+
 void take_action(int key, pane *pane)
 {
     int confirm_key;
-    int num;
-    char *dirs_list[pane->dirs_num];
-    char *files_list[pane->files_num];
 
     switch (key)
     {
@@ -1618,14 +1713,13 @@ void take_action(int key, pane *pane)
             break;
 
         case KEY_BTM:
-            num = pane->dirs_num + pane->files_num;
-            if (num > termsize_y - 2)
+            if (pane->dirs_num + pane->files_num > termsize_y - 2)
             {
-                pane->top_index = num - termsize_y + 2;
+                pane->top_index = pane->dirs_num + pane->files_num - termsize_y + 2;
                 pane->select = termsize_y - 2;
             }
             else
-                pane->select = num;
+                pane->select = pane->dirs_num + pane->files_num;
             break;
 
         case KEY_SHELL:
@@ -1633,11 +1727,7 @@ void take_action(int key, pane *pane)
             break;
 
         case KEY_SELALL:
-            remove(clipboard_path);
-            clipboard_num = 0; 
-            get_files_in_array(pane->path, dirs_list, files_list);
-            add_list_clipboard(dirs_list, pane->path, pane->dirs_num);
-            add_list_clipboard(files_list, pane->path, pane->files_num);
+            select_all(pane);
             break;
         
         case KEY_SELEMPTY:
@@ -1707,6 +1797,13 @@ void take_action(int key, pane *pane)
                 remove_bookmark(confirm_key);
                 delwin(bookmarks);
             }
+            break;
+
+        case KEY_SEARCH:
+            wattron(status_bar, COLOR_PAIR(2));
+            print_line(status_bar, 1, "Search: ");
+            wattroff(status_bar, COLOR_PAIR(2));
+            search(pane);
             break;
     }
 }
