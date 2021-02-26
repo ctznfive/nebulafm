@@ -37,6 +37,7 @@
 #define KEY_RNM 'a'
 #define KEY_TOP 'g'
 #define KEY_BTM 'G'
+#define KEY_HIGH 'H' // Move cursor to header (top) line
 #define KEY_SHELL '!'
 #define KEY_SELALL 'V' // Add all files to the clipboard
 #define KEY_SELEMPTY 'R' // Clear clipboard
@@ -1720,6 +1721,10 @@ void take_action(int key, pane *pane)
             }
             else
                 pane->select = pane->dirs_num + pane->files_num;
+            break;
+
+        case KEY_HIGH:
+            pane->select = 1;
             break;
 
         case KEY_SHELL:
