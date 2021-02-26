@@ -38,13 +38,14 @@
 #define KEY_TOP 'g'
 #define KEY_BTM 'G'
 #define KEY_HIGH 'H' // Move cursor to header (top) line
+#define KEY_MIDDLE 'M' // Move cursor to middle line
 #define KEY_SHELL '!'
 #define KEY_SELALL 'V' // Add all files to the clipboard
 #define KEY_SELEMPTY 'R' // Clear clipboard
-#define KEY_MAKEDIR 'M'
-#define KEY_MAKEFILE 'F'
+#define KEY_MAKEDIR 'm'
+#define KEY_MAKEFILE 'f'
 #define KEY_VIEW 'i' // Preview file or directory
-#define KEY_ADDBKMR 'm' // Add a new bookmark
+#define KEY_ADDBKMR 'b' // Add a new bookmark
 #define KEY_OPENBKMR '\'' // Open bookmark list
 #define KEY_DELBKMR 'Z' // Delete the bookmark
 #define KEY_SEARCH '/'
@@ -1725,6 +1726,13 @@ void take_action(int key, pane *pane)
 
         case KEY_HIGH:
             pane->select = 1;
+            break;
+
+        case KEY_MIDDLE:
+            if (pane->dirs_num + pane->files_num > (termsize_y - 2) / 2)
+                pane->select = (termsize_y - 2) / 2 + 1;
+            else
+                pane->select = pane->dirs_num + pane->files_num;
             break;
 
         case KEY_SHELL:
