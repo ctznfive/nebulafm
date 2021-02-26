@@ -39,6 +39,7 @@
 #define KEY_BTM 'G'
 #define KEY_HIGH 'H' // Move cursor to header (top) line
 #define KEY_MIDDLE 'M' // Move cursor to middle line
+#define KEY_LAST 'L' // Move cursor to last line
 #define KEY_SHELL '!'
 #define KEY_SELALL 'V' // Add all files to the clipboard
 #define KEY_SELEMPTY 'R' // Clear clipboard
@@ -1731,6 +1732,13 @@ void take_action(int key, pane *pane)
         case KEY_MIDDLE:
             if (pane->dirs_num + pane->files_num > (termsize_y - 2) / 2)
                 pane->select = (termsize_y - 2) / 2 + 1;
+            else
+                pane->select = pane->dirs_num + pane->files_num;
+            break;
+
+        case KEY_LAST:
+            if (pane->dirs_num + pane->files_num > termsize_y - 2)
+                pane->select = termsize_y - 2;
             else
                 pane->select = pane->dirs_num + pane->files_num;
             break;
