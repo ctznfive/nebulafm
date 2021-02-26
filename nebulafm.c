@@ -41,6 +41,7 @@
 #define KEY_MIDDLE 'M' // Move cursor to middle line
 #define KEY_LAST 'L' // Move cursor to last line
 #define KEY_PAGEDOWN 'J' // Move down by a page
+#define KEY_PAGEUP 'K' // Move up by a page
 #define KEY_SHELL '!'
 #define KEY_SELALL 'V' // Add all files to the clipboard
 #define KEY_SELEMPTY 'R' // Clear clipboard
@@ -1752,6 +1753,19 @@ void take_action(int key, pane *pane)
                 else
                 {
                     pane->top_index += termsize_y - 2;
+                    pane->select = 1;
+                }
+            }
+            break;
+
+        case KEY_PAGEUP:
+            if (pane->dirs_num + pane->files_num > termsize_y - 2)
+            {
+                if (pane->top_index < termsize_y - 2)
+                    pane->top_index = 0;
+                else
+                {
+                    pane->top_index -= termsize_y - 2;
                     pane->select = 1;
                 }
             }
