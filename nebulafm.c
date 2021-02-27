@@ -1869,13 +1869,10 @@ void take_action(int key, pane *pane)
         case KEY_SEARCHNEXT:
             if (search_substr != NULL)
             {
-                if (strlen(search_substr) != 0 && is_empty_str(search_substr) != 0)
-                {
-                    if (search_file_index == -1)
-                        search_dir_index = search_dir(pane, search_substr, search_dir_index + 1);
-                    if (search_dir_index == -1)
-                        search_file_index = search_file(pane, search_substr, search_file_index + 1);
-                }
+                if (search_file_index == -1)
+                    search_dir_index = search_dir(pane, search_substr, search_dir_index + 1);
+                if (search_dir_index == -1)
+                    search_file_index = search_file(pane, search_substr, search_file_index + 1);
             }
             break;
     }
