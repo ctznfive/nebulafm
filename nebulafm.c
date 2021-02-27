@@ -52,6 +52,7 @@
 #define KEY_OPENBKMR '\'' // Open bookmark list
 #define KEY_DELBKMR 'Z' // Delete the bookmark
 #define KEY_SEARCH '/'
+#define KEY_SEARCHNEXT 'n' // The next match in the file list
 #define LEFT 0
 #define RIGHT 1
 #define REFRESH 50 // Refresh every 5 seconds
@@ -88,6 +89,9 @@ int bookmarks_num = 0; // The number of bookmarks
 sigset_t signal_set; // Represent a signal set to specify what signals are affected
 int back_flag = 0; // Changes to 1 after returning to parent directory
 int hide_flag = HIDDENVIEW;
+char *search_substr = NULL; // Substring to search
+int search_dir_index = -1; // The pointer to the search result in the directory list
+int search_file_index = -1; // The pointer to the search result in the file list
 
 /* Prototypes */
 void init_common(int, char *[]);
@@ -142,8 +146,9 @@ void add_bookmark(char *, char);
 void print_bookmarks(void);
 void open_bookmark(char, pane *);
 void remove_bookmark(char);
-void search(pane *);
-int search_list(char *, char *[], int);
+int search_dir(pane *, char *, int);
+int search_file(pane *, char *, int);
+int search_list(char *, char *[], int, int);
 void take_action(int, pane *);
 
 int main(int argc, char *argv[])
@@ -244,6 +249,7 @@ int main(int argc, char *argv[])
     free(conf_path);
     free(clipboard_path);
     free(bookmarks_path);
+    free(search_substr);
 
     endwin();
     clear();
@@ -1537,81 +1543,65 @@ void remove_bookmark(char key)
     }
 }
 
-void search(pane *pane)
+int search_dir(pane *pane, char *substr, int start)
 {
     char *dirs_list[pane->dirs_num];
     char *files_list[pane->files_num];
-    char *search_substr = malloc(NAME_MAX);
-    if (search_substr == NULL)
+    get_files_in_array(pane->path, dirs_list, files_list);
+    qsort(dirs_list, pane->dirs_num, sizeof(char *), compare_elements);
+    int dir_found = search_list(substr, dirs_list, pane->dirs_num, start);
+    if (dir_found != -1)
     {
-        endwin();
-        perror("memory allocation error\n");
-        exit(EXIT_FAILURE);
-    }
-    echo();
-    curs_set(1);
-    wgetnstr(status_bar, search_substr, NAME_MAX);
-    noecho();
-    curs_set(0);
-    if (strlen(search_substr) != 0 && is_empty_str(search_substr) != 0)
-    {
-        get_files_in_array(pane->path, dirs_list, files_list);
-        qsort(dirs_list, pane->dirs_num, sizeof(char *), compare_elements);
-        int dir_found = search_list(search_substr, dirs_list, pane->dirs_num);
-        if (dir_found == -1)
+        if (termsize_y > pane->dirs_num)
         {
-            qsort(files_list, pane->files_num, sizeof(char *), compare_elements);
-            int file_found = search_list(search_substr, files_list, pane->files_num);
-            if (file_found == -1)
-                print_notification("Not found!");
-            else
-            {
-                /* The file has been found. */
-                if (termsize_y > pane->dirs_num + pane->files_num)
-                {
-                    pane->top_index = 0;
-                    pane->select = pane->dirs_num + file_found + 1;
-                }
-                else if (file_found < pane->files_num - (termsize_y - 2))
-                {
-                    pane->top_index = pane->dirs_num + file_found;
-                    pane->select = 1;
-                }
-                else
-                {
-                    pane->top_index = pane->dirs_num + pane->files_num - (termsize_y - 2);
-                    pane->select = termsize_y - 1 - (pane->files_num - file_found);
-                }
-            }
+            pane->top_index = 0;
+            pane->select = dir_found + 1;
+        }
+        else if (dir_found < pane->dirs_num - (termsize_y - 2))
+        {
+            pane->top_index = dir_found;
+            pane->select = 1;
         }
         else
         {
-            /* The directory has been found. */
-            if (termsize_y > pane->dirs_num)
-            {
-                pane->top_index = 0;
-                pane->select = dir_found + 1;
-            }
-            else if (dir_found < pane->dirs_num - (termsize_y - 2))
-            {
-                pane->top_index = dir_found;
-                pane->select = 1;
-            }
-            else
-            {
-                pane->top_index = pane->dirs_num - (termsize_y - 2);
-                pane->select = termsize_y - 1 - (pane->dirs_num - dir_found);
-            }
+            pane->top_index = pane->dirs_num - (termsize_y - 2);
+            pane->select = termsize_y - 1 - (pane->dirs_num - dir_found);
         }
     }
-    else
-        print_notification("Please enter the correct name!");
-    free(search_substr);
+    return dir_found;
 }
 
-int search_list(char *substr, char *list[], int num)
+int search_file(pane *pane, char *substr, int start)
 {
-    for (int index = 0; index < num; index++)
+    char *dirs_list[pane->dirs_num];
+    char *files_list[pane->files_num];
+    get_files_in_array(pane->path, dirs_list, files_list);
+    qsort(files_list, pane->files_num, sizeof(char *), compare_elements);
+    int file_found = search_list(substr, files_list, pane->files_num, start);
+    if (file_found != -1)
+    {
+        if (termsize_y > pane->dirs_num + pane->files_num)
+        {
+            pane->top_index = 0;
+            pane->select = pane->dirs_num + file_found + 1;
+        }
+        else if (file_found < pane->files_num - (termsize_y - 2))
+        {
+            pane->top_index = pane->dirs_num + file_found;
+            pane->select = 1;
+        }
+        else
+        {
+            pane->top_index = pane->dirs_num + pane->files_num - (termsize_y - 2);
+            pane->select = termsize_y - 1 - (pane->files_num - file_found);
+        }
+    }
+    return file_found;
+}
+
+int search_list(char *substr, char *list[], int num, int start)
+{
+    for (int index = start; index < num; index++)
     {
         char *found = strcasestr(list[index], substr);
         if (found != NULL)
@@ -1852,7 +1842,41 @@ void take_action(int key, pane *pane)
             wattron(status_bar, COLOR_PAIR(2));
             print_line(status_bar, 1, "Search: ");
             wattroff(status_bar, COLOR_PAIR(2));
-            search(pane);
+            free(search_substr);
+            search_substr = malloc(NAME_MAX);
+            if (search_substr == NULL)
+            {
+                endwin();
+                perror("memory allocation error\n");
+                exit(EXIT_FAILURE);
+            }
+            echo();
+            curs_set(1);
+            wgetnstr(status_bar, search_substr, NAME_MAX);
+            noecho();
+            curs_set(0);
+            if (strlen(search_substr) != 0 && is_empty_str(search_substr) != 0)
+            {
+                search_dir_index = search_dir(pane, search_substr, 0);
+                search_file_index = -1;
+                if (search_dir_index == -1)
+                    search_file_index = search_file(pane, search_substr, 0);
+            }
+            else
+                print_notification("Please enter the correct name!");
+            break;
+
+        case KEY_SEARCHNEXT:
+            if (search_substr != NULL)
+            {
+                if (strlen(search_substr) != 0 && is_empty_str(search_substr) != 0)
+                {
+                    if (search_file_index == -1)
+                        search_dir_index = search_dir(pane, search_substr, search_dir_index + 1);
+                    if (search_dir_index == -1)
+                        search_file_index = search_file(pane, search_substr, search_file_index + 1);
+                }
+            }
             break;
     }
 }
