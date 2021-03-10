@@ -1,8 +1,5 @@
-// % gcc nebulafm.c -o nebulafm -Wall -Wextra -ggdb -lmagic $(ncursesw5-config --cflags --libs)
-
+/* ----- NebulaFM ----- */
 /* See LICENSE for license details. */
-
-#define _BSD_SOURCE
 
 #include <stdio.h>
 #include <curses.h>
@@ -21,42 +18,12 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include "config.h"
 
-#define KEY_CHPANE 9
+#define KEY_CHPANE 9 // Tab key to change the pane
 #define KEY_RETURN 10
-#define KEY_BACKWARD 'h'
-#define KEY_DOWNWARD 'j'
-#define KEY_UPWARD 'k'
-#define KEY_FORWARD 'l'
-#define KEY_HIDE 'z'
-#define KEY_MULT ' '
-#define KEY_DEL 'd'
-#define KEY_DEL_CONF 'D'
-#define KEY_CPY 'y'
-#define KEY_MV 'v'
-#define KEY_RNM 'a'
-#define KEY_TOP 'g'
-#define KEY_BTM 'G'
-#define KEY_HIGH 'H' // Move cursor to header (top) line
-#define KEY_MIDDLE 'M' // Move cursor to middle line
-#define KEY_LAST 'L' // Move cursor to last line
-#define KEY_PAGEDOWN 'J' // Move down by a page
-#define KEY_PAGEUP 'K' // Move up by a page
-#define KEY_SHELL '!'
-#define KEY_SELALL 'V' // Add all files to the clipboard
-#define KEY_SELEMPTY 'R' // Clear clipboard
-#define KEY_MAKEDIR 'm'
-#define KEY_MAKEFILE 'f'
-#define KEY_VIEW 'i' // Preview file or directory
-#define KEY_ADDBKMR 'b' // Add a new bookmark
-#define KEY_OPENBKMR '\'' // Open bookmark list
-#define KEY_DELBKMR 'Z' // Delete the bookmark
-#define KEY_SEARCH '/'
-#define KEY_SEARCHNEXT 'n' // The next match in the file list
 #define LEFT 0
 #define RIGHT 1
-#define REFRESH 50 // Refresh every 5 seconds
-#define HIDDENVIEW 1 // Display or hide hidden files
 
 typedef struct pane
 {
@@ -275,7 +242,7 @@ void set_editor()
 {
     if (getenv("EDITOR") != NULL)
     {
-        int alloc_size = snprintf(NULL, 0, "%s", getenv("EDITOR"));    
+        int alloc_size = snprintf(NULL, 0, "%s", getenv("EDITOR"));
         editor = malloc(alloc_size + 1);
         if (editor == NULL)
         {
@@ -300,7 +267,7 @@ void set_shell()
 {
     if (getenv("SHELL") != NULL)
     {
-        int alloc_size = snprintf(NULL, 0, "%s", getenv("SHELL"));    
+        int alloc_size = snprintf(NULL, 0, "%s", getenv("SHELL"));
         shell = malloc(alloc_size + 1);
         if (shell == NULL)
         {
@@ -412,7 +379,7 @@ void init_paths(int argc, char *argv[])
     }
     snprintf(right_pane.select_path, alloc_size + 1, "%s", left_pane.path);
 
-    /* Set the path for the configuration directory */ 
+    /* Set the path for the configuration directory */
     char *conf_dir = getenv("XDG_CONFIG_HOME");
     if (conf_dir != NULL)
     {
@@ -437,7 +404,7 @@ void init_paths(int argc, char *argv[])
         snprintf(conf_path, alloc_size + 1, "%s/.config/nebulafm", user_data->pw_dir);
     }
 
-    /* Set the path for the clipboard file */ 
+    /* Set the path for the clipboard file */
     alloc_size = snprintf(NULL, 0, "%s/clipboard", conf_path);
     clipboard_path = malloc(alloc_size + 1);
     if (clipboard_path == NULL)
@@ -447,7 +414,7 @@ void init_paths(int argc, char *argv[])
     }
     snprintf(clipboard_path, alloc_size + 1, "%s/clipboard", conf_path);
 
-    /* Set the path for the bookmarks file */ 
+    /* Set the path for the bookmarks file */
     alloc_size = snprintf(NULL, 0, "%s/bookmarks", conf_path);
     bookmarks_path = malloc(alloc_size + 1);
     if (bookmarks_path == NULL)
@@ -509,9 +476,9 @@ void init_curses()
     initscr();
     noecho();
     curs_set(0); // Hide the cursor
-    halfdelay(REFRESH); 
+    halfdelay(REFRESH);
     start_color();
-    init_pair(1, COLOR_CYAN, 0); // Colors : directory 
+    init_pair(1, COLOR_CYAN, 0); // Colors : directory
     init_pair(2, COLOR_RED, 0);  // Colors : active pane; files from clipboard
 }
 
@@ -590,7 +557,7 @@ void refresh_windows()
 {
     wrefresh(left_pane.win);
     wrefresh(right_pane.win);
-    wrefresh(status_bar); 
+    wrefresh(status_bar);
 }
 
 WINDOW *create_window(int height, int width, int starty, int startx)
@@ -684,7 +651,7 @@ int print_list(pane *pane, char *list[], int num, int start_index, int line_pos,
             wattroff(pane->win, COLOR_PAIR(color));
         }
 
-        wattroff(pane->win, A_STANDOUT); 
+        wattroff(pane->win, A_STANDOUT);
         free(print_path);
         line_pos++;
     }
@@ -726,7 +693,7 @@ void print_line(WINDOW *window, int pos, char *str)
 void go_down(pane *pane)
 {
     int num = pane->dirs_num + pane->files_num;
-    pane->select++; 
+    pane->select++;
     if (pane->select > num)
         pane->select = num;
 
@@ -738,19 +705,19 @@ void go_down(pane *pane)
         pane->select--;
         wclear(pane->win);
     }
-    
+
 }
 
 void go_up(pane *pane)
 {
-    pane->select--; 
+    pane->select--;
 
     /* Scrolling */
     if (pane->select < 1)
     {
         if (pane->top_index > 0)
             pane->top_index--;
-        pane->select = 1; 
+        pane->select = 1;
         wclear(pane->win);
     }
 }
@@ -1214,7 +1181,7 @@ void open_shell(pane *pane)
 void select_all(pane *pane)
 {
     remove(clipboard_path);
-    clipboard_num = 0; 
+    clipboard_num = 0;
     char *dirs_list[pane->dirs_num];
     char *files_list[pane->files_num];
     get_files_in_array(pane->path, dirs_list, files_list);
@@ -1638,7 +1605,7 @@ void take_action(int key, pane *pane)
 
         case KEY_FORWARD:
         case KEY_RIGHT:
-        case KEY_RETURN:    
+        case KEY_RETURN:
             if (access(pane->select_path, R_OK) == 0)
                 (is_dir(pane->select_path) == 0) ? open_file(pane) : open_dir(pane);
             else
@@ -1768,10 +1735,10 @@ void take_action(int key, pane *pane)
         case KEY_SELALL:
             select_all(pane);
             break;
-        
+
         case KEY_SELEMPTY:
             remove(clipboard_path);
-            clipboard_num = 0; 
+            clipboard_num = 0;
             break;
 
         case KEY_MAKEDIR:
