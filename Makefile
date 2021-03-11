@@ -5,12 +5,12 @@ SRCMODULES = nebulafm.c
 OBJMODULES = $(SRCMODULES: .c = .o)
 
 SOURCE_CFLAGS = -D_GNU_SOURCE
-MAGIC_CFLAGS = -lmagic
 CURSES_CFLAGS = `pkg-config --cflags ncursesw`
+MAGIC_LIBS = -lmagic
 CURSES_LIBS = `pkg-config --libs ncursesw`
 
-CFLAGS = $(SOURCE_CFLAGS) $(MAGIC_CFLAGS) $(CURSES_CFLAGS)
-LIBS = $(CURSES_LIBS)
+CFLAGS = $(SOURCE_CFLAGS) $(CURSES_CFLAGS)
+LIBS = $(MAGIC_LIBS) $(CURSES_LIBS)
 
 BINPREFIX = /usr/bin
 MANPREFIX = /usr/share/man
