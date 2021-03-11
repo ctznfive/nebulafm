@@ -1,1 +1,58 @@
 .\" Manpage for NebulaFM
+.
+.TH NEBULAFM "1" "NebulaFM" "03/11/21"
+.SH NAME
+NebulaFM - visual curses file manager
+.SH SYNOPSIS
+.B nebulafm
+[path]
+.SH DESCRIPTION
+NebulaFM is a minimalistic console twin-pane file manager with VI key bindings
+.SH RESOURCES
+This manual contains some instructions on how to use and configure NebulaFM
+.br
+The file README.md contains install instructions
+.SH KEY BINDINGS
+Key bindings can be customized in the file
+.B config.h
+.PP
+.nf
+h : Go to the parent directory
+j : Go down
+k : Go up
+l : Open a file or child directory
+z : Show or hide hidden files
+d : Delete files
+D : Confirm the deletion
+y : Copy files
+v : Move files
+a : Rename files
+g : Go to the beginning of the current file list
+G : Go to the end of the current file list
+H : Move cursor to header (top) line
+M : Move cursor to middle line
+L : Move cursor to last line
+J : Move down by a page
+K : Move up by a page
+! : Open the shell in the current directory
+V : Add all files to the clipboard
+R : Clear clipboard
+m : Create a new directory
+f : Create a new file
+i : Preview file or directory
+b : Add a new bookmark
+\\ : Open bookmark list
+Z : Delete the bookmark
+/ : Search in the current directory
+n : The next match in the file list
+space : Select a file or directory
+.SH LICENSE
+GNU General Public License 3 or any later version
+.SH COPYRIGHT
+This is free software: you are free to change and redistribute it
+.br
+There is NO WARRANTY, to the extent permitted by law
+.SH AUTHOR
+NebulaFM and this manual page was written by Ctzn Five (ctznfive@gmail.com)
+.SH BUGS
+Report bugs here: <https://github.com/ctznfive/nebulafm/issues>
