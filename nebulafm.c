@@ -787,7 +787,7 @@ void open_file(pane *pane)
             /* Open a file in default text editor */
             endwin();
             sigprocmask(SIG_BLOCK, &signal_set, NULL); // block SIGWINCH
-            char *argv[] = { "editor", pane->select_path, (char *)0 };
+            char *argv[] = { editor, pane->select_path, (char *)0 };
             pid_t pid = fork_exec(argv[0], argv);
             int status;
             waitpid(pid, &status, 0);
