@@ -4,6 +4,7 @@ MANNAME = $(PROG).1
 SRCMODULES = nebulafm.c
 OBJMODULES = $(SRCMODULES: .c = .o)
 
+SOURCE_CFLAGS = -D_GNU_SOURCE
 MAGIC_CFLAGS = -lmagic
 CURSES_CFLAGS = `pkg-config --cflags ncursesw`
 CURSES_LIBS = `pkg-config --libs ncursesw`
