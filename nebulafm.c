@@ -1468,6 +1468,7 @@ void open_bookmark(char key, pane *pane)
                 pane->top_index = 0;
                 /* If the directory is empty */
                 alloc_size = snprintf(NULL, 0, "%s", pane->path);
+                free(pane->select_path);
                 pane->select_path = malloc(alloc_size + 1);
                 if (pane->select_path == NULL)
                 {
