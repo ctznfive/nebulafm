@@ -116,6 +116,7 @@ void remove_bookmark(char);
 int search_dir(pane *, char *, int);
 int search_file(pane *, char *, int);
 int search_list(char *, char *[], int, int);
+void free_array(char *[], int);
 void take_action(int, pane *);
 
 int main(int argc, char *argv[])
@@ -131,7 +132,6 @@ int main(int argc, char *argv[])
         getmaxyx(stdscr, termsize_y, termsize_x); // Get term size
         termsize_y--; // For status bar
         make_windows();
-
         get_number_of_files(&left_pane);
         get_number_of_files(&right_pane);
 
@@ -177,7 +177,13 @@ int main(int argc, char *argv[])
             /* Keybindings */
             keypress = wgetch(left_pane.win);
             if (keypress == ERR)
+            {
+                free_array(dirs_list_l, left_pane.dirs_num);
+                free_array(files_list_l, left_pane.files_num);
+                free_array(dirs_list_r, right_pane.dirs_num);
+                free_array(files_list_r, right_pane.files_num);
                 continue;
+            }
             take_action(keypress, &left_pane);
         }
         else if (pane_flag == RIGHT)
@@ -189,7 +195,13 @@ int main(int argc, char *argv[])
             /* Keybindings */
             keypress = wgetch(right_pane.win);
             if (keypress == ERR)
+            {
+                free_array(dirs_list_l, left_pane.dirs_num);
+                free_array(files_list_l, left_pane.files_num);
+                free_array(dirs_list_r, right_pane.dirs_num);
+                free_array(files_list_r, right_pane.files_num);
                 continue;
+            }
             take_action(keypress, &right_pane);
         }
         else
@@ -199,6 +211,10 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
 
+        free_array(dirs_list_l, left_pane.dirs_num);
+        free_array(files_list_l, left_pane.files_num);
+        free_array(dirs_list_r, right_pane.dirs_num);
+        free_array(files_list_r, right_pane.files_num);
     }
     while (keypress != 'q');
 
@@ -1187,6 +1203,8 @@ void select_all(pane *pane)
     get_files_in_array(pane->path, dirs_list, files_list);
     add_list_clipboard(dirs_list, pane->path, pane->dirs_num);
     add_list_clipboard(files_list, pane->path, pane->files_num);
+    free_array(dirs_list, pane->dirs_num);
+    free_array(files_list, pane->files_num);
 }
 
 void add_list_clipboard(char *list[], char *path, int num)
@@ -1535,6 +1553,8 @@ int search_dir(pane *pane, char *substr, int start)
             pane->select = termsize_y - 1 - (pane->dirs_num - dir_found);
         }
     }
+    free_array(dirs_list, pane->dirs_num);
+    free_array(files_list, pane->files_num);
     return dir_found;
 }
 
@@ -1563,6 +1583,8 @@ int search_file(pane *pane, char *substr, int start)
             pane->select = termsize_y - 1 - (pane->files_num - file_found);
         }
     }
+    free_array(dirs_list, pane->dirs_num);
+    free_array(files_list, pane->files_num);
     return file_found;
 }
 
@@ -1575,6 +1597,12 @@ int search_list(char *substr, char *list[], int num, int start)
             return index;
     }
     return -1;
+}
+
+void free_array(char *array[], int num)
+{
+    for (int i = 0; i < num; i++)
+        free(array[i]);
 }
 
 void take_action(int key, pane *pane)
