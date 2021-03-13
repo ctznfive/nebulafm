@@ -6,7 +6,7 @@
 
 `nebulafm` is a minimalistic console-based twin-pane file manager with VI-like key bindings and shell integration
 
-![screenshot](nebulafm.png)
+![screenshot](nebula.png)
 
 ## Dependencies
 - `ncursesw`
