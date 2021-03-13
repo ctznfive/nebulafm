@@ -60,9 +60,9 @@ Run `nebulafm`, then you can use <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</
 | <kbd>/</kbd> | Search in the current directory |
 | <kbd>n</kbd> | The next match in the file list |
 
-*Key bindings can be customized in the file config.h*
+# Configuration
+Key bindings can be customized in the file `config.h`
 
-# Directories used
 The clipboard file is located in `$HOME/.config/nebulafm/clipboard`
 
 The bookmarks file is located in `$HOME/.config/nebulafm/bookmarks`
