@@ -1,6 +1,4 @@
-[logo](logo.png)
-
-<h1 align="center">nebulafm</h1>
+![logo](logo.png)
 
 <p align="center">
 <a href="https://github.com/ctznfive/nebulafm/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ctznfive/nebulafm" alt="License" /></a>
