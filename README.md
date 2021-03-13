@@ -1,6 +1,7 @@
 ![logo](logo.png)
 
 <p align="center">
+<a href="https://github.com/ctznfive/nebulafm/releases/latest"><img src="https://img.shields.io/github/v/release/ctznfive/nebulafm" alt="Latest release" /></a>
 <a href="https://github.com/ctznfive/nebulafm/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ctznfive/nebulafm" alt="License" /></a>
 </p>
 
@@ -23,7 +24,7 @@ Install on the system:
 
     sudo make install
     
-## Quick start
+## Quick Start
 Run `nebulafm`, then you can use <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd> or the arrow keys to navigate the directory tree, <kbd>Enter</kbd> or <kbd>l</kbd> to open a file or <kbd>q</kbd> to quit
 
 ## Key Bindings
