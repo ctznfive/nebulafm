@@ -73,4 +73,5 @@ The bookmarks file is located in `$HOME/.config/nebulafm/bookmarks`
 
 ## Contributing
 Found a bug? Want a Feature? Need Help? 
+
 If you'd like to contribute, ask questions or share your opinions, please feel free to open an issue
